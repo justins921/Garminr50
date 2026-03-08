@@ -1,12 +1,23 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { computeClubStats, computeSessionStats, computeGapping } from "@/analytics/stats";
+import { DEMO_MODE, MOCK_CLUB_STATS, MOCK_OVERVIEW, getMockGapping } from "@/lib/mock-data";
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const type = sp.get("type"); // "clubs" | "session" | "gapping" | "overview"
   const sessionId = sp.get("sessionId");
   const clubId = sp.get("clubId");
+
+  if (DEMO_MODE) {
+    if (type === "clubs") return NextResponse.json(MOCK_CLUB_STATS);
+    if (type === "gapping") return NextResponse.json(getMockGapping());
+    if (type === "club" && clubId) {
+      const stat = MOCK_CLUB_STATS.find(s => s.clubId === clubId);
+      return stat ? NextResponse.json(stat) : NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(MOCK_OVERVIEW);
+  }
 
   if (type === "session" && sessionId) {
     const session = await prisma.session.findUnique({ where: { id: sessionId } });

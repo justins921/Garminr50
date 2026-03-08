@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { avg } from "@/analytics/stats";
+import { DEMO_MODE, MOCK_WEDGE_MATRIX } from "@/lib/mock-data";
 
 const SWING_KEYS: Record<string, Array<{ key: string; label: string }>> = {
   clock: [
@@ -24,6 +25,8 @@ const SWING_KEYS: Record<string, Array<{ key: string; label: string }>> = {
 };
 
 export async function GET() {
+  if (DEMO_MODE) return NextResponse.json(MOCK_WEDGE_MATRIX);
+
   const matrix = await prisma.wedgeMatrix.findFirst({
     where: { isActive: true },
     include: {

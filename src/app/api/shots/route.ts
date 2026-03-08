@@ -1,7 +1,19 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, MOCK_SHOTS } from "@/lib/mock-data";
 
 export async function GET(req: NextRequest) {
+  if (DEMO_MODE) {
+    const sp = req.nextUrl.searchParams;
+    const sessionId = sp.get("sessionId");
+    const clubId = sp.get("clubId");
+    const limit = parseInt(sp.get("limit") ?? "500");
+    let shots = [...MOCK_SHOTS];
+    if (sessionId) shots = shots.filter(s => s.sessionId === sessionId);
+    if (clubId) shots = shots.filter(s => s.clubId === clubId);
+    return NextResponse.json(shots.slice(0, limit));
+  }
+
   const sp = req.nextUrl.searchParams;
   const sessionId = sp.get("sessionId");
   const clubId = sp.get("clubId");

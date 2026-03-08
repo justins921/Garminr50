@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, MOCK_CLUBS } from "@/lib/mock-data";
 
 export async function GET() {
+  if (DEMO_MODE) return NextResponse.json(MOCK_CLUBS);
+
   const clubs = await prisma.club.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },

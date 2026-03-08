@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MODE, MOCK_SESSIONS } from "@/lib/mock-data";
 
 export async function GET(req: NextRequest) {
+  if (DEMO_MODE) return NextResponse.json(MOCK_SESSIONS);
+
   const searchParams = req.nextUrl.searchParams;
   const environment = searchParams.get("environment");
   const sessionType = searchParams.get("sessionType");

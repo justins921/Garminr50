@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeShots } from "@/analytics/optimizer";
+import { DEMO_MODE, MOCK_OPTIMIZER_RESULT } from "@/lib/mock-data";
 
 export async function GET(req: NextRequest) {
+  if (DEMO_MODE) return NextResponse.json(MOCK_OPTIMIZER_RESULT);
+
   const sp = req.nextUrl.searchParams;
   const clubId = sp.get("clubId");
   const sessionId = sp.get("sessionId");

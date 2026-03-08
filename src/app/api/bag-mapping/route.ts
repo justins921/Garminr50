@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { computeBagMapping } from "@/analytics/bag-mapping";
+import { DEMO_MODE, MOCK_BAG_MAPPING } from "@/lib/mock-data";
 
 export async function GET() {
+  if (DEMO_MODE) return NextResponse.json(MOCK_BAG_MAPPING);
+
   const mapping = await prisma.bagMapping.findFirst({
     where: { isActive: true },
     include: {
