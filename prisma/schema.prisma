@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Club {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   // driver, wood, hybrid, iron, wedge, putter
+  loft      Float?
+  brand     String?
+  model     String?
+  shaft     String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shots     Shot[]
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  name        String
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  location    String?
+  environment String   @default("indoor") // indoor, outdoor
+  sessionType String   @default("practice") // practice, gapping, stock_shot, warmup, fitting
+  notes       String?
+  source      String   @default("manual") // live_bridge, csv_import, json_import, manual
+  isLive      Boolean  @default(false)
+  isPaused    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shots       Shot[]
+  tags        SessionTag[]
+}
+
+model Shot {
+  id               String   @id @default(uuid())
+  sessionId        String
+  clubId           String?
+  shotNumber       Int
+  timestamp        DateTime @default(now())
+
+  // Ball data
+  ballSpeed        Float?   // mph
+  launchAngle      Float?   // degrees vertical
+  launchDirection  Float?   // degrees horizontal
+  spinRate         Float?   // rpm total
+  backSpin         Float?   // rpm
+  sideSpin         Float?   // rpm
+  spinAxis         Float?   // degrees
+
+  // Distance data
+  carryDistance     Float?   // yards
+  totalDistance     Float?   // yards
+  offlineDistance   Float?   // yards (left negative, right positive)
+  apexHeight       Float?   // yards
+
+  // Club data
+  clubSpeed        Float?   // mph
+  smashFactor      Float?
+  angleOfAttack    Float?   // degrees
+  clubPath         Float?   // degrees
+  faceAngle        Float?   // degrees
+  faceToPath       Float?   // degrees
+  dynamicLoft      Float?   // degrees
+
+  // Meta
+  shotShape        String?  // draw, fade, straight, hook, slice, pull, push
+  shotResult       String?  // good, mishit, thin, fat, toe, heel, sky, top, shank
+  validity         String   @default("valid") // valid, invalid, warmup, excluded
+  source           String   @default("manual") // live_bridge, csv_import, json_import, manual
+  rawPayload       String?  // JSON string for debugging
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  session          Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  club             Club?    @relation(fields: [clubId], references: [id])
+  tags             ShotTag[]
+
+  @@index([sessionId])
+  @@index([clubId])
+  @@index([timestamp])
+}
+
+model Tag {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  color       String?
+  createdAt   DateTime     @default(now())
+  sessionTags SessionTag[]
+  shotTags    ShotTag[]
+}
+
+model SessionTag {
+  sessionId String
+  tagId     String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, tagId])
+}
+
+model ShotTag {
+  shotId String
+  tagId  String
+  shot   Shot @relation(fields: [shotId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([shotId, tagId])
+}
+
+model ImportLog {
+  id         String   @id @default(uuid())
+  source     String   // csv, json, garmin_api, live_bridge
+  filename   String?
+  status     String   // pending, processing, completed, failed
+  shotCount  Int      @default(0)
+  errors     String?  // JSON array of error messages
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model DeviceConnection {
+  id           String   @id @default(uuid())
+  deviceName   String   @default("Garmin Approach R50")
+  deviceType   String   @default("r50")
+  status       String   @default("disconnected") // connected, disconnected, connecting, error
+  lastSeen     DateTime?
+  ipAddress    String?
+  port         Int?
+  protocol     String?  // gspro_open_connect_v1
+  metadata     String?  // JSON string
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
