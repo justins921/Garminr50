@@ -7,8 +7,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Auth models (NextAuth.js v5) ───────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // bcrypt hash for credentials login
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // App data relations
+  clubs              Club[]
+  sessions           Session[]
+  importLogs         ImportLog[]
+  bagMappings        BagMapping[]
+  wedgeMatrices      WedgeMatrix[]
+  deviceConnections  DeviceConnection[]
+  tags               Tag[]
+}
+
+// ─── App models ─────────────────────────────────────────────────────────────
+
 model Club {
   id        String   @id @default(uuid())
+  userId    String
   name      String
   type      String   // driver, wood, hybrid, iron, wedge, putter
   loft      Float?
@@ -20,10 +44,14 @@ model Club {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   shots     Shot[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {
   id          String   @id @default(uuid())
+  userId      String
   name        String
   startedAt   DateTime @default(now())
   endedAt     DateTime?
@@ -38,6 +66,9 @@ model Session {
   updatedAt   DateTime @updatedAt
   shots       Shot[]
   tags        SessionTag[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Shot {
@@ -92,11 +123,16 @@ model Shot {
 
 model Tag {
   id          String       @id @default(uuid())
-  name        String       @unique
+  userId      String
+  name        String
   color       String?
   createdAt   DateTime     @default(now())
   sessionTags SessionTag[]
   shotTags    ShotTag[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 model SessionTag {
@@ -119,6 +155,7 @@ model ShotTag {
 
 model ImportLog {
   id         String   @id @default(uuid())
+  userId     String
   source     String   // csv, json, garmin_api, live_bridge
   filename   String?
   status     String   // pending, processing, completed, failed
@@ -126,16 +163,23 @@ model ImportLog {
   errors     String?  // JSON array of error messages
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model BagMapping {
   id          String   @id @default(uuid())
+  userId      String
   name        String   @default("My Bag")
   isActive    Boolean  @default(true)
   minShots    Int      @default(5) // minimum shots per club for valid mapping
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   clubs       BagMappingClub[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model BagMappingClub {
@@ -162,12 +206,16 @@ model BagMappingClub {
 
 model WedgeMatrix {
   id          String   @id @default(uuid())
+  userId      String
   name        String   @default("My Wedge Matrix")
   system      String   @default("clock") // clock, percentage, feel
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   entries     WedgeMatrixEntry[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WedgeMatrixEntry {
@@ -196,6 +244,7 @@ model WedgeMatrixEntry {
 
 model DeviceConnection {
   id           String   @id @default(uuid())
+  userId       String
   deviceName   String   @default("Garmin Approach R50")
   deviceType   String   @default("r50")
   status       String   @default("disconnected") // connected, disconnected, connecting, error
@@ -206,4 +255,7 @@ model DeviceConnection {
   metadata     String?  // JSON string
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { CsvShotSource } from "@/ingestion/csv-source";
 import { JsonShotSource } from "@/ingestion/json-source";
 import { NormalizedShot } from "@/types/shot";
+import { requireUserId } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
+  const userId = await requireUserId();
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const format = formData.get("format") as string | null;
@@ -41,6 +43,7 @@ export async function POST(req: NextRequest) {
   // Create session
   const session = await prisma.session.create({
     data: {
+      userId,
       name: sessionName ?? `Import: ${file.name}`,
       environment,
       source: isJson ? "json_import" : "csv_import",
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   // Resolve clubs by name — auto-create any that don't exist yet
   const clubMap = new Map<string, string>();
-  const existingClubs = await prisma.club.findMany();
+  const existingClubs = await prisma.club.findMany({ where: { userId } });
   for (const c of existingClubs) {
     clubMap.set(c.name.toLowerCase(), c.id);
   }
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
     if (!clubMap.has(key)) {
       const info = CLUB_TYPE_MAP[key] ?? { type: "iron", sortOrder: 50 };
       const club = await prisma.club.create({
-        data: { name, type: info.type, sortOrder: info.sortOrder },
+        data: { userId, name, type: info.type, sortOrder: info.sortOrder },
       });
       clubMap.set(key, club.id);
     }
@@ -138,6 +141,7 @@ export async function POST(req: NextRequest) {
   // Log import
   await prisma.importLog.create({
     data: {
+      userId,
       source: isJson ? "json" : "csv",
       filename: file.name,
       status: "completed",
@@ -152,9 +156,13 @@ export async function POST(req: NextRequest) {
     clubsCreated: uniqueClubNames.size,
   });
   } catch (err) {
+    const msg = String(err);
+    if (msg.includes("Unauthorized")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     console.error("Import error:", err);
     return NextResponse.json(
-      { error: "Import failed", details: String(err) },
+      { error: "Import failed", details: msg },
       { status: 500 }
     );
   }

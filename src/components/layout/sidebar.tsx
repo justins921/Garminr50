@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Radio,
@@ -15,6 +17,7 @@ import {
   Map,
   Grid3X3,
   Zap,
+  LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -33,6 +36,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <aside className="w-60 border-r bg-card flex flex-col h-screen sticky top-0">
@@ -75,7 +79,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t">
+      <div className="p-3 border-t space-y-2">
+        {session?.user && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => signOut({ callbackUrl: "/sign-in" })}
+            >
+              <LogOut className="w-3 h-3" />
+            </Button>
+          </div>
+        )}
         <div className="text-xs text-muted-foreground">
           <p>Garmin Approach R50</p>
           <p className="text-[10px] mt-0.5">Bridge: <span className="text-amber-500">Not connected</span></p>

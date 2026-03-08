@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -53,10 +54,21 @@ function normalRand(min: number, max: number): number {
 async function main() {
   console.log("Seeding database...");
 
+  // Create default demo user
+  const hashedPassword = await bcrypt.hash("demo1234", 12);
+  const user = await prisma.user.create({
+    data: {
+      name: "Demo User",
+      email: "demo@golfpulse.app",
+      password: hashedPassword,
+    },
+  });
+  console.log(`Created demo user: ${user.email} (password: demo1234)`);
+
   // Create clubs
   const clubs = [];
   for (const c of CLUBS) {
-    const club = await prisma.club.create({ data: c });
+    const club = await prisma.club.create({ data: { ...c, userId: user.id } });
     clubs.push(club);
   }
   console.log(`Created ${clubs.length} clubs`);
@@ -65,7 +77,7 @@ async function main() {
   const tagNames = ["indoor", "outdoor", "driver-focus", "wedge-work", "gapping", "warm-up", "stock-shots"];
   const tags = [];
   for (const name of tagNames) {
-    const tag = await prisma.tag.create({ data: { name } });
+    const tag = await prisma.tag.create({ data: { name, userId: user.id } });
     tags.push(tag);
   }
 
@@ -80,6 +92,7 @@ async function main() {
   for (const config of sessionConfigs) {
     const session = await prisma.session.create({
       data: {
+        userId: user.id,
         name: config.name,
         startedAt: config.date,
         endedAt: new Date(config.date.getTime() + 60 * 60 * 1000),
