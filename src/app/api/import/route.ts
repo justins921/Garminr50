@@ -5,6 +5,7 @@ import { JsonShotSource } from "@/ingestion/json-source";
 import { NormalizedShot } from "@/types/shot";
 
 export async function POST(req: NextRequest) {
+  try {
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const format = formData.get("format") as string | null;
@@ -46,11 +47,51 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Resolve clubs by name
+  // Resolve clubs by name — auto-create any that don't exist yet
   const clubMap = new Map<string, string>();
   const existingClubs = await prisma.club.findMany();
   for (const c of existingClubs) {
     clubMap.set(c.name.toLowerCase(), c.id);
+  }
+
+  // Find club names from shots that don't exist in DB and create them
+  const uniqueClubNames = new Set(
+    shots.map((s) => s.clubName).filter((n): n is string => !!n)
+  );
+  const CLUB_TYPE_MAP: Record<string, { type: string; sortOrder: number }> = {
+    driver: { type: "driver", sortOrder: 1 },
+    "2 wood": { type: "wood", sortOrder: 2 },
+    "3 wood": { type: "wood", sortOrder: 3 },
+    "4 wood": { type: "wood", sortOrder: 4 },
+    "5 wood": { type: "wood", sortOrder: 5 },
+    "7 wood": { type: "wood", sortOrder: 6 },
+    "2 hybrid": { type: "hybrid", sortOrder: 7 },
+    "3 hybrid": { type: "hybrid", sortOrder: 8 },
+    "4 hybrid": { type: "hybrid", sortOrder: 9 },
+    "5 hybrid": { type: "hybrid", sortOrder: 10 },
+    "3 iron": { type: "iron", sortOrder: 11 },
+    "4 iron": { type: "iron", sortOrder: 12 },
+    "5 iron": { type: "iron", sortOrder: 13 },
+    "6 iron": { type: "iron", sortOrder: 14 },
+    "7 iron": { type: "iron", sortOrder: 15 },
+    "8 iron": { type: "iron", sortOrder: 16 },
+    "9 iron": { type: "iron", sortOrder: 17 },
+    "pitching wedge": { type: "wedge", sortOrder: 18 },
+    "gap wedge": { type: "wedge", sortOrder: 19 },
+    "sand wedge": { type: "wedge", sortOrder: 20 },
+    "lob wedge": { type: "wedge", sortOrder: 21 },
+    putter: { type: "putter", sortOrder: 22 },
+  };
+
+  for (const name of uniqueClubNames) {
+    const key = name.toLowerCase();
+    if (!clubMap.has(key)) {
+      const info = CLUB_TYPE_MAP[key] ?? { type: "iron", sortOrder: 50 };
+      const club = await prisma.club.create({
+        data: { name, type: info.type, sortOrder: info.sortOrder },
+      });
+      clubMap.set(key, club.id);
+    }
   }
 
   // Create shots
@@ -108,5 +149,13 @@ export async function POST(req: NextRequest) {
     sessionId: session.id,
     shotCount: created.length,
     sessionName: session.name,
+    clubsCreated: uniqueClubNames.size,
   });
+  } catch (err) {
+    console.error("Import error:", err);
+    return NextResponse.json(
+      { error: "Import failed", details: String(err) },
+      { status: 500 }
+    );
+  }
 }
