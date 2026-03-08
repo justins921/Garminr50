@@ -498,36 +498,6 @@ export function getMockGapping() {
   };
 }
 
-// ── Optimizer ──────────────────────────────────────────────────────────────
-
-export const MOCK_OPTIMIZER_RESULT = {
-  overallScore: 68,
-  overallGrade: "B",
-  metrics: [
-    { name: "Smash Factor", value: 1.41, unit: "", optimalRange: [1.44, 1.52], score: "yellow", suggestion: "Smash factor is slightly below optimal. Focus on center contact." },
-    { name: "Launch Angle", value: 12.9, unit: "°", optimalRange: [10, 14], score: "green", suggestion: "Launch angle is in the optimal range for driver." },
-    { name: "Spin Rate", value: 2524, unit: "rpm", optimalRange: [2000, 2800], score: "green", suggestion: "Spin rate is in the optimal range." },
-    { name: "Angle of Attack", value: 2.1, unit: "°", optimalRange: [0, 5], score: "green", suggestion: "Positive angle of attack — good for driver distance." },
-    { name: "Distance Consistency", value: 82, unit: "%", optimalRange: [90, 100], score: "yellow", suggestion: "Carry spread of 20+ yards. Work on consistent strike location." },
-    { name: "Directional Accuracy", value: 15.3, unit: "yds offline", optimalRange: [0, 10], score: "red", suggestion: "Shots scatter both left and right. Face-to-path relationship is inconsistent." },
-  ],
-  strengths: ["Launch Angle", "Spin Rate", "Angle of Attack"],
-  weaknesses: [
-    "Face-to-path varies from -8.8° to +7.9° — directional control is the primary issue.",
-    "Smash factor of 1.41 indicates some off-center hits are costing distance.",
-  ],
-  drills: [
-    { name: "Face Tape Drill", category: "accuracy", description: "Put impact tape or foot spray on the face. Hit 10 balls and check strike pattern. Goal: cluster within a quarter-sized area.", targetIssue: "Inconsistent face contact", priority: "high" },
-    { name: "Alignment Stick Gate", category: "accuracy", description: "Place two alignment sticks 8 inches apart just past the ball. Swing through the gate. This trains a consistent path.", targetIssue: "Variable club path (-5° to +7°)", priority: "high" },
-    { name: "9-Shot Drill", category: "consistency", description: "Hit 3 draws, 3 fades, 3 straight. If you can control shape, you control face-to-path.", targetIssue: "Face control", priority: "medium" },
-  ],
-  insights: [
-    "Your best 5 driver carries average 240 yards vs overall 233 — a 7-yard gap that's mostly contact quality.",
-    "Your face-to-path ranges from -8.8° to +7.9°, causing shots to scatter 43 yards left-to-right. This is the #1 area to improve.",
-    "5 Wood: left miss tendency with avg offline -7.4 yards. The -2.0° average face angle suggests alignment may be contributing.",
-  ],
-};
-
 // ── Bag Mapping ────────────────────────────────────────────────────────────
 
 export const MOCK_BAG_MAPPING = {
