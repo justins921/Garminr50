@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const { data: clubStats } = useFetch<ClubStats[]>("/api/analytics?type=clubs");
   const { data: allShots } = useFetch<Array<{
     carryDistance: number | null;
+    totalDistance: number | null;
     offlineDistance: number | null;
     ballSpeed: number | null;
     validity: string;
@@ -40,6 +41,7 @@ export default function DashboardPage() {
     .map((s) => ({
       x: s.offlineDistance!,
       y: s.carryDistance!,
+      totalDistance: s.totalDistance ?? undefined,
       clubName: s.club?.name,
       ballSpeed: s.ballSpeed ?? undefined,
     }));
@@ -77,9 +79,9 @@ export default function DashboardPage() {
         <StatCard label="Total Shots" value={overview?.totalShots ?? 0} />
         <StatCard label="Sessions" value={overview?.totalSessions ?? 0} />
         <StatCard
-          label="Avg Carry"
+          label="Longest Carry"
           value={clubStats && clubStats.length > 0
-            ? Math.round(clubStats.reduce((sum, c) => sum + c.avgCarry * c.shotCount, 0) / clubStats.reduce((sum, c) => sum + c.shotCount, 0))
+            ? Math.max(...clubStats.map((c) => c.bestCarry))
             : 0}
           unit="yds"
         />

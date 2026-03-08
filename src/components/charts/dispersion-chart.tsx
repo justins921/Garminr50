@@ -1,7 +1,15 @@
 "use client";
 
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { DispersionPoint } from "@/types/analytics";
+import { useState, useMemo } from "react";
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
+
+interface DispersionPoint {
+  x: number;
+  y: number;
+  clubName?: string;
+  ballSpeed?: number;
+  totalDistance?: number;
+}
 
 interface Props {
   data: DispersionPoint[];
@@ -9,7 +17,53 @@ interface Props {
   height?: number;
 }
 
+// Distinct colors that work on dark & light backgrounds
+const CLUB_COLORS = [
+  "#3b82f6", // blue
+  "#ef4444", // red
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#14b8a6", // teal
+  "#a855f7", // purple
+  "#6366f1", // indigo
+  "#84cc16", // lime
+  "#e11d48", // rose
+];
+
 export function DispersionChart({ data, title = "Shot Dispersion", height = 400 }: Props) {
+  const [mode, setMode] = useState<"carry" | "total">("carry");
+
+  const { clubNames, colorMap, groupedData } = useMemo(() => {
+    const names = Array.from(new Set(data.map((d) => d.clubName ?? "Unknown")));
+    // Sort clubs by average carry descending (longest first) for a logical legend order
+    names.sort((a, b) => {
+      const avgA = data.filter((d) => (d.clubName ?? "Unknown") === a).reduce((s, d) => s + d.y, 0) / (data.filter((d) => (d.clubName ?? "Unknown") === a).length || 1);
+      const avgB = data.filter((d) => (d.clubName ?? "Unknown") === b).reduce((s, d) => s + d.y, 0) / (data.filter((d) => (d.clubName ?? "Unknown") === b).length || 1);
+      return avgB - avgA;
+    });
+
+    const cMap = new Map<string, string>();
+    names.forEach((name, i) => cMap.set(name, CLUB_COLORS[i % CLUB_COLORS.length]));
+
+    const grouped = new Map<string, DispersionPoint[]>();
+    for (const d of data) {
+      const name = d.clubName ?? "Unknown";
+      const point = {
+        ...d,
+        y: mode === "total" && d.totalDistance != null ? d.totalDistance : d.y,
+      };
+      const arr = grouped.get(name) ?? [];
+      arr.push(point);
+      grouped.set(name, arr);
+    }
+
+    return { clubNames: names, colorMap: cMap, groupedData: grouped };
+  }, [data, mode]);
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -19,10 +73,34 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
   }
 
   const maxOffline = Math.max(30, ...data.map((d) => Math.abs(d.x)));
+  const hasTotalData = data.some((d) => d.totalDistance != null);
+  const yLabel = mode === "carry" ? "Carry (yards)" : "Total (yards)";
 
   return (
     <div>
-      {title && <h3 className="text-sm font-medium mb-2 text-muted-foreground">{title}</h3>}
+      <div className="flex items-center justify-between mb-2">
+        {title && <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>}
+        {hasTotalData && (
+          <div className="inline-flex rounded-md border text-xs">
+            <button
+              onClick={() => setMode("carry")}
+              className={`px-2.5 py-1 rounded-l-md transition-colors ${
+                mode === "carry" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+              }`}
+            >
+              Carry
+            </button>
+            <button
+              onClick={() => setMode("total")}
+              className={`px-2.5 py-1 rounded-r-md transition-colors ${
+                mode === "total" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+              }`}
+            >
+              Total
+            </button>
+          </div>
+        )}
+      </div>
       <ResponsiveContainer width="100%" height={height}>
         <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -37,9 +115,9 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
           <YAxis
             type="number"
             dataKey="y"
-            name="Carry"
+            name={mode === "carry" ? "Carry" : "Total"}
             unit=" yds"
-            label={{ value: "Carry (yards)", angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
+            label={{ value: yLabel, angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
           />
           <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
           <Tooltip
@@ -49,19 +127,27 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
               return (
                 <div className="bg-popover border rounded-lg p-2 text-xs shadow-lg">
                   <p className="font-medium">{d.clubName ?? "Unknown Club"}</p>
-                  <p>Carry: {d.y} yds</p>
+                  <p>{mode === "carry" ? "Carry" : "Total"}: {d.y} yds</p>
                   <p>Offline: {d.x > 0 ? `${d.x} R` : `${Math.abs(d.x)} L`}</p>
                   {d.ballSpeed && <p>Ball Speed: {d.ballSpeed} mph</p>}
                 </div>
               );
             }}
           />
-          <Scatter
-            data={data}
-            fill="hsl(var(--primary))"
-            fillOpacity={0.7}
-            r={5}
+          <Legend
+            verticalAlign="top"
+            wrapperStyle={{ fontSize: 11, paddingBottom: 4 }}
           />
+          {clubNames.map((name) => (
+            <Scatter
+              key={name}
+              name={name}
+              data={groupedData.get(name) ?? []}
+              fill={colorMap.get(name)}
+              fillOpacity={0.75}
+              r={5}
+            />
+          ))}
         </ScatterChart>
       </ResponsiveContainer>
     </div>
