@@ -15,6 +15,7 @@ export const MOCK_CLUBS = [
   { id: "c7", name: "7 Iron", type: "iron", loft: 31, brand: "Mizuno", model: "Pro S3", shaft: null, sortOrder: 15, isActive: true, createdAt: "2026-02-26T00:00:00Z", updatedAt: "2026-02-26T00:00:00Z", _count: { shots: 21 } },
   { id: "c8", name: "8 Iron", type: "iron", loft: 35, brand: "Mizuno", model: "Pro S3", shaft: null, sortOrder: 16, isActive: true, createdAt: "2026-02-26T00:00:00Z", updatedAt: "2026-02-26T00:00:00Z", _count: { shots: 22 } },
   { id: "c9", name: "9 Iron", type: "iron", loft: 39, brand: "Mizuno", model: "Pro S3", shaft: null, sortOrder: 17, isActive: true, createdAt: "2026-02-26T00:00:00Z", updatedAt: "2026-02-26T00:00:00Z", _count: { shots: 21 } },
+  { id: "c10", name: "Pitching Wedge", type: "wedge", loft: 43, brand: "Mizuno", model: "Pro S3", shaft: null, sortOrder: 18, isActive: true, createdAt: "2026-02-26T00:00:00Z", updatedAt: "2026-02-26T00:00:00Z", _count: { shots: 20 } },
 ];
 
 // ── Sessions ───────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ export const MOCK_SESSIONS = [
   { id: "s7", name: "7 Iron Session", startedAt: "2026-02-26T09:28:00Z", endedAt: "2026-02-26T09:36:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 21 }, tags: [] },
   { id: "s8", name: "8 Iron Session", startedAt: "2026-02-26T09:12:00Z", endedAt: "2026-02-26T09:21:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 22 }, tags: [] },
   { id: "s9", name: "9 Iron Session", startedAt: "2026-02-26T08:58:00Z", endedAt: "2026-02-26T09:05:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 21 }, tags: [] },
+  { id: "s10", name: "Pitching Wedge Session", startedAt: "2026-02-26T08:46:00Z", endedAt: "2026-02-26T08:53:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 20 }, tags: [] },
 ];
 
 // ── Real Shot Data ─────────────────────────────────────────────────────────
@@ -65,7 +67,7 @@ interface MockShot {
   session?: { id: string; name: string };
 }
 
-const SESSION_NAMES: Record<string, string> = { s1: "Driver Session", s2: "5 Wood Session", s3: "3 Wood Session", s4: "7 Wood Session", s5: "5 Iron Session", s6: "6 Iron Session", s7: "7 Iron Session", s8: "8 Iron Session", s9: "9 Iron Session" };
+const SESSION_NAMES: Record<string, string> = { s1: "Driver Session", s2: "5 Wood Session", s3: "3 Wood Session", s4: "7 Wood Session", s5: "5 Iron Session", s6: "6 Iron Session", s7: "7 Iron Session", s8: "8 Iron Session", s9: "9 Iron Session", s10: "Pitching Wedge Session" };
 
 // Helper to build a shot from CSV row values
 function s(
@@ -307,6 +309,27 @@ export const MOCK_SHOTS: MockShot[] = [
   s(192,"s9","c9","9 Iron","iron",39,19,"2026-02-26T09:04:15Z", 81.4,-4.59,7.45,3.53,-3.92, 101.6,1.25,21.54,3.83, 7329.9,367.5,7339.1,-2.87, 27.6,135.8,6.9,142.2,7.0),
   s(193,"s9","c9","9 Iron","iron",39,20,"2026-02-26T09:04:32Z", 83.1,-4.92,8.83,1.18,-7.65, 98.4,1.18,16.25,2.08, 6009.4,423.4,6024.3,-4.03, 18.1,130.8,1.3,142.3,1.1),
   s(194,"s9","c9","9 Iron","iron",39,21,"2026-02-26T09:04:49Z", 82.6,-4.54,7.01,-0.44,-7.45, 99.5,1.20,20.8,0.52, 7135.7,651.9,7165.4,-5.22, 25.1,132.5,-4.2,139.7,-4.7),
+  // ── Pitching Wedge (session s10) ──
+  s(195,"s10","c10","Pitching Wedge","wedge",43,1,"2026-02-26T08:46:36Z", 79.86,-4.64,5.41,-1.57,-6.98, 92.54,1.1588,20.96,-0.61, 8336.3,1164.2,8417.2,-7.95, 21.6,118.07,-8.6,123.72,-9.3),
+  s(196,"s10","c10","Pitching Wedge","wedge",43,2,"2026-02-26T08:46:52Z", 79.61,-4.26,9.14,1.36,-7.78, 94.18,1.1829,16.59,2.26, 6384.8,667.7,6419.6,-5.97, 16.6,121.88,0.1,133.01,-0.3),
+  s(197,"s10","c10","Pitching Wedge","wedge",43,3,"2026-02-26T08:47:10Z", 81.02,-4.36,8.9,3.44,-5.46, 93.86,1.1585,23.54,3.94, 8572.9,858.7,8615.8,-5.72, 25.6,119.77,3.7,123.75,3.6),
+  s(198,"s10","c10","Pitching Wedge","wedge",43,4,"2026-02-26T08:47:26Z", 80.22,-4.89,7.58,2.63,-4.95, 92.7,1.1556,23.4,3.11, 8142.7,518.0,8159.1,-3.64, 24.6,118.86,3.8,123.73,3.8),
+  s(199,"s10","c10","Pitching Wedge","wedge",43,5,"2026-02-26T08:47:46Z", 78.52,-5.77,8.87,2.26,-6.61, 94.29,1.2009,20.58,2.96, 8314.5,1015.0,8376.2,-6.96, 22.2,121.11,0.3,126.76,0.0),
+  s(200,"s10","c10","Pitching Wedge","wedge",43,6,"2026-02-26T08:48:06Z", 78.92,-5.11,6.33,0.56,-5.77, 92.03,1.1661,19.64,1.26, 7533.5,725.4,7568.3,-5.5, 19.6,118.26,-2.0,125.74,-2.4),
+  s(201,"s10","c10","Pitching Wedge","wedge",43,7,"2026-02-26T08:48:25Z", 78.43,-4.4,8.3,2.92,-5.38, 91.42,1.1657,22.64,3.44, 8499.2,420.1,8509.5,-2.83, 23.1,116.23,5.2,121.05,5.3),
+  s(202,"s10","c10","Pitching Wedge","wedge",43,8,"2026-02-26T08:48:42Z", 79.7,-4.17,7.29,4.08,-3.21, 95.61,1.1996,25.07,4.26, 7708.8,223.4,7712.0,-1.66, 28.3,123.99,8.7,128.99,9.0),
+  s(203,"s10","c10","Pitching Wedge","wedge",43,9,"2026-02-26T08:48:59Z", 80.82,-4.92,7.5,-1.18,-8.68, 86.64,1.072,22.41,-0.03, 7257.0,1036.7,7330.7,-8.13, 19.7,109.59,-6.2,116.62,-7.0),
+  s(204,"s10","c10","Pitching Wedge","wedge",43,10,"2026-02-26T08:49:18Z", 80.46,-5.89,8.21,2.28,-5.93, 97.24,1.2085,21.44,2.9, 7880.9,976.0,7941.1,-7.06, 24.9,126.96,-0.1,132.56,-0.4),
+  s(205,"s10","c10","Pitching Wedge","wedge",43,11,"2026-02-26T08:49:41Z", 80.1,-6.44,7.29,1.34,-5.95, 97.04,1.2114,21.7,2.01, 7541.3,988.8,7605.9,-7.47, 24.9,127.26,-2.6,133.33,-3.1),
+  s(206,"s10","c10","Pitching Wedge","wedge",43,12,"2026-02-26T08:50:01Z", 78.87,-4.87,6.61,2.22,-4.39, 98.16,1.2445,22.38,2.65, 7778.5,675.1,7807.7,-4.96, 26.6,128.7,1.4,134.2,1.2),
+  s(207,"s10","c10","Pitching Wedge","wedge",43,13,"2026-02-26T08:50:23Z", 79.72,-4.16,7.89,-1.14,-9.03, 94.29,1.1827,21.27,0.05, 7744.7,1135.4,7827.5,-8.34, 22.8,122.09,-7.8,128.28,-8.5),
+  s(208,"s10","c10","Pitching Wedge","wedge",43,14,"2026-02-26T08:50:43Z", 81.78,-4.16,11.75,4.38,-7.37, 91.13,1.1143,22.03,5.07, 8748.4,562.7,8766.5,-3.68, 22.3,115.31,8.0,120.13,8.1),
+  s(209,"s10","c10","Pitching Wedge","wedge",43,15,"2026-02-26T08:51:03Z", 79.34,-5.33,6.96,2.23,-4.73, 92.94,1.1714,23.0,2.7, 8137.7,268.5,8142.1,-1.89, 24.3,119.38,4.5,124.38,4.6),
+  s(210,"s10","c10","Pitching Wedge","wedge",43,16,"2026-02-26T08:51:23Z", 79.21,-5.34,4.1,0.55,-3.55, 92.39,1.1663,23.93,0.97, 7776.6,298.7,7782.4,-2.2, 24.9,119.01,0.2,124.23,0.1),
+  s(211,"s10","c10","Pitching Wedge","wedge",43,17,"2026-02-26T08:51:45Z", 80.04,-5.42,5.4,-2.12,-7.52, 93.53,1.1685,22.82,-1.06, 6162.5,1142.1,6267.4,-10.5, 23.5,123.81,-12.0,132.28,-13.3),
+  s(212,"s10","c10","Pitching Wedge","wedge",43,18,"2026-02-26T08:52:06Z", 81.07,-5.51,7.86,4.04,-3.82, 94.85,1.17,23.1,4.3, 8708.9,120.1,8709.8,-0.79, 25.7,121.38,9.4,125.5,9.7),
+  s(213,"s10","c10","Pitching Wedge","wedge",43,19,"2026-02-26T08:52:22Z", 81.16,-3.94,8.46,0.05,-8.41, 95.14,1.1723,23.97,1.1, 7081.0,1306.0,7200.5,-10.45, 26.3,124.5,-7.5,130.58,-8.3),
+  s(214,"s10","c10","Pitching Wedge","wedge",43,20,"2026-02-26T08:52:38Z", 79.75,-3.6,7.57,4.68,-2.89, 94.44,1.1843,25.13,4.79, 8222.3,479.9,8236.3,-3.34, 27.7,120.96,8.2,125.12,8.3),
 ];
 
 // ── Club Stats (computed from real data) ───────────────────────────────────
