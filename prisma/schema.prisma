@@ -128,6 +128,72 @@ model ImportLog {
   updatedAt  DateTime @updatedAt
 }
 
+model BagMapping {
+  id          String   @id @default(uuid())
+  name        String   @default("My Bag")
+  isActive    Boolean  @default(true)
+  minShots    Int      @default(5) // minimum shots per club for valid mapping
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clubs       BagMappingClub[]
+}
+
+model BagMappingClub {
+  id            String   @id @default(uuid())
+  bagMappingId  String
+  clubId        String
+  status        String   @default("pending") // pending, in_progress, completed
+  avgCarry      Float?
+  avgTotal      Float?
+  minCarry      Float?   // with outliers removed
+  maxCarry      Float?   // with outliers removed
+  avgOffline    Float?
+  dispersionRadius Float? // yards
+  dispersionAngle  Float? // degrees of arc width
+  shotCount     Int      @default(0)
+  sessionId     String?  // session used for mapping this club
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  bagMapping    BagMapping @relation(fields: [bagMappingId], references: [id], onDelete: Cascade)
+
+  @@index([bagMappingId])
+  @@index([clubId])
+}
+
+model WedgeMatrix {
+  id          String   @id @default(uuid())
+  name        String   @default("My Wedge Matrix")
+  system      String   @default("clock") // clock, percentage, feel
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  entries     WedgeMatrixEntry[]
+}
+
+model WedgeMatrixEntry {
+  id              String   @id @default(uuid())
+  wedgeMatrixId   String
+  clubId          String
+  swingKey        String   // clock: "7:30", "9:00", "10:30"; percentage: "25", "50", "75", "100"; feel: "soft", "medium", "full"
+  swingLabel      String   // display name: "7:30 Position", "50% Swing", etc.
+  targetDistance   Float?   // target carry in yards (optional, user-set)
+  avgCarry        Float?
+  avgTotal        Float?
+  avgSpinRate     Float?
+  avgLaunchAngle  Float?
+  minCarry        Float?
+  maxCarry        Float?
+  shotCount       Int      @default(0)
+  status          String   @default("pending") // pending, in_progress, completed
+  sessionId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  wedgeMatrix     WedgeMatrix @relation(fields: [wedgeMatrixId], references: [id], onDelete: Cascade)
+
+  @@index([wedgeMatrixId])
+  @@index([clubId])
+}
+
 model DeviceConnection {
   id           String   @id @default(uuid())
   deviceName   String   @default("Garmin Approach R50")

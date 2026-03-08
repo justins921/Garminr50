@@ -12,6 +12,9 @@ import {
   Crosshair,
   GitCompare,
   Settings,
+  Map,
+  Grid3X3,
+  Zap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -20,6 +23,9 @@ const NAV_ITEMS = [
   { href: "/sessions", label: "Sessions", icon: History },
   { href: "/clubs", label: "Clubs", icon: Crosshair },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/bag-mapping", label: "Bag Mapping", icon: Map },
+  { href: "/wedge-matrix", label: "Wedge Matrix", icon: Grid3X3 },
+  { href: "/optimizer", label: "Shot Optimizer", icon: Zap },
   { href: "/compare", label: "Compare", icon: GitCompare },
   { href: "/import", label: "Import", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
