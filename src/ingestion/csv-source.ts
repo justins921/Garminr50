@@ -1,18 +1,27 @@
 import { NormalizedShot } from "@/types/shot";
 import { ShotSourceAdapter } from "./base-source";
 
-// Known CSV column mappings for Garmin Golf app exports
+// Known CSV column mappings for Garmin Golf / R50 exports and common launch monitor CSVs.
+// Keys are lowercase header names.
 const COLUMN_MAP: Record<string, keyof NormalizedShot> = {
+  // Club identification
   "club": "clubName",
   "club name": "clubName",
-  "club type": "clubName",
+
+  // Ball speed
   "ball speed": "ballSpeed",
   "ball speed (mph)": "ballSpeed",
+
+  // Club speed
   "club speed": "clubSpeed",
   "club head speed": "clubSpeed",
   "club speed (mph)": "clubSpeed",
+
+  // Launch
   "launch angle": "launchAngle",
   "launch direction": "launchDirection",
+
+  // Spin
   "spin rate": "spinRate",
   "total spin": "spinRate",
   "back spin": "backSpin",
@@ -20,29 +29,50 @@ const COLUMN_MAP: Record<string, keyof NormalizedShot> = {
   "side spin": "sideSpin",
   "sidespin": "sideSpin",
   "spin axis": "spinAxis",
+
+  // Carry
   "carry distance": "carryDistance",
   "carry": "carryDistance",
   "carry (yards)": "carryDistance",
   "carry distance (yards)": "carryDistance",
+
+  // Total
   "total distance": "totalDistance",
   "total": "totalDistance",
   "total (yards)": "totalDistance",
   "total distance (yards)": "totalDistance",
+
+  // Offline — Garmin exports "Carry Deviation Distance" and "Total Deviation Distance"
   "offline": "offlineDistance",
   "offline distance": "offlineDistance",
-  "carry deviation": "offlineDistance",
-  "total deviation": "offlineDistance",
+  "carry deviation distance": "offlineDistance",
+
+  // Apex
   "apex": "apexHeight",
   "apex height": "apexHeight",
+
+  // Club delivery
   "smash factor": "smashFactor",
   "angle of attack": "angleOfAttack",
   "attack angle": "angleOfAttack",
   "club path": "clubPath",
   "face angle": "faceAngle",
+  "club face": "faceAngle",
   "face to path": "faceToPath",
   "dynamic loft": "dynamicLoft",
+
+  // Meta
   "shot shape": "shotShape",
 };
+
+// Garmin exports include a units row like: [mph],[deg],[Yards],...
+// Detect and skip it.
+function isUnitsRow(values: string[]): boolean {
+  const unitPattern = /^\[.*\]$/;
+  const unitCount = values.filter((v) => unitPattern.test(v.trim())).length;
+  const nonEmpty = values.filter((v) => v.trim()).length;
+  return nonEmpty > 0 && unitCount / nonEmpty > 0.3;
+}
 
 export class CsvShotSource implements ShotSourceAdapter {
   readonly name = "CSV Import";
@@ -74,14 +104,28 @@ export class CsvShotSource implements ShotSourceAdapter {
       if (mapped) columnMap.set(idx, mapped);
     });
 
+    // Find special column indices
+    const dateIdx = headers.findIndex((h) =>
+      ["date", "time", "timestamp", "date/time"].includes(h)
+    );
+    const spinRateTypeIdx = headers.indexOf("spin rate type");
+    const noteIdx = headers.indexOf("note");
+    const tagIdx = headers.indexOf("tag");
+
     const shots: NormalizedShot[] = [];
+    let shotNum = 0;
 
     for (let i = 1; i < lines.length; i++) {
       const values = this.parseRow(lines[i]);
-      if (values.every((v) => !v.trim())) continue; // skip empty rows
+
+      // Skip empty rows and unit header rows (Garmin format)
+      if (values.every((v) => !v.trim())) continue;
+      if (isUnitsRow(values)) continue;
+
+      shotNum++;
 
       const shot: NormalizedShot = {
-        shotNumber: i,
+        shotNumber: shotNum,
         timestamp: new Date().toISOString(),
         source: "csv_import",
         rawPayload: JSON.stringify(
@@ -103,14 +147,22 @@ export class CsvShotSource implements ShotSourceAdapter {
         }
       });
 
-      // Try to find a date/time column
-      const dateIdx = headers.findIndex((h) =>
-        ["date", "time", "timestamp", "date/time"].includes(h)
-      );
+      // Parse timestamp from date column
       if (dateIdx >= 0 && values[dateIdx]) {
         const parsed = new Date(values[dateIdx]);
         if (!isNaN(parsed.getTime())) {
           shot.timestamp = parsed.toISOString();
+        }
+      }
+
+      // Mark shots with estimated spin as lower confidence (store in rawPayload)
+      if (spinRateTypeIdx >= 0) {
+        const spinType = values[spinRateTypeIdx]?.trim();
+        if (spinType && spinType.toLowerCase() !== "measured") {
+          // Keep the shot valid but annotate spin as estimated
+          const raw = JSON.parse(shot.rawPayload ?? "{}");
+          raw._spinRateType = spinType;
+          shot.rawPayload = JSON.stringify(raw);
         }
       }
 
