@@ -11,7 +11,7 @@ export default function SettingsPage() {
   const { data: clubs } = useFetch<Array<{ id: string; name: string; type: string; loft: number | null; _count: { shots: number } }>>("/api/clubs");
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings className="w-6 h-6" />

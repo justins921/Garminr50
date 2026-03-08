@@ -16,7 +16,7 @@ export default function ClubsPage() {
     .sort((a, b) => b.avgCarry - a.avgCarry);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Crosshair className="w-6 h-6" />
@@ -39,13 +39,13 @@ export default function ClubsPage() {
 
       {/* Club Cards */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-48 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {sorted.map((club) => (
             <Card key={club.clubId}>
               <CardHeader className="pb-2">

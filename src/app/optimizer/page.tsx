@@ -56,7 +56,7 @@ export default function OptimizerPage() {
   const clubsWithShots = (clubs ?? []).filter((c) => c._count.shots > 0);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Zap className="w-6 h-6" />
@@ -71,7 +71,7 @@ export default function OptimizerPage() {
       <Card>
         <CardContent className="pt-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="min-w-44">
+            <div className="w-full sm:w-auto sm:min-w-44">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Club</label>
               <Select value={selectedClub} onValueChange={(v) => setSelectedClub(v ?? "")}>
                 <SelectTrigger><SelectValue placeholder="All clubs" /></SelectTrigger>
@@ -85,7 +85,7 @@ export default function OptimizerPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-56">
+            <div className="w-full sm:w-auto sm:min-w-56">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Session</label>
               <Select value={selectedSession} onValueChange={(v) => setSelectedSession(v ?? "")}>
                 <SelectTrigger><SelectValue placeholder="All sessions" /></SelectTrigger>

@@ -51,7 +51,7 @@ export default function DashboardPage() {
     .sort((a, b) => b.avgCarry - a.avgCarry);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -60,14 +60,15 @@ export default function DashboardPage() {
         <div className="flex gap-2">
           <Link
             href="/live"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
+            className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <Radio className="w-4 h-4" />
-            Live Session
+            <span className="hidden sm:inline">Live Session</span>
+            <span className="sm:hidden">Live</span>
           </Link>
           <Link
             href="/import"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+            className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
           >
             <Upload className="w-4 h-4" />
             Import

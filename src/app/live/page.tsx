@@ -143,7 +143,7 @@ export default function LiveSessionPage() {
   }));
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -222,7 +222,7 @@ export default function LiveSessionPage() {
       </Card>
 
       {/* Live Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         <StatCard label="Shots" value={shots.length} accent={sessionActive} />
         <StatCard label="Avg Carry" value={carries.length ? Math.round(avg(carries)) : "—"} unit="yds" />
         <StatCard label="Avg Ball Speed" value={ballSpeeds.length ? Math.round(avg(ballSpeeds)) : "—"} unit="mph" />

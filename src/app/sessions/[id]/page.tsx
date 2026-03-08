@@ -47,9 +47,9 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
 
   if (loading || !session) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 md:p-6 max-w-7xl mx-auto">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-4 gap-4 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />)}
         </div>
       </div>
@@ -108,11 +108,11 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
     }));
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">{session.name}</h1>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex flex-wrap items-center gap-2 mt-1">
           <p className="text-sm text-muted-foreground">
             {format(new Date(session.startedAt), "EEEE, MMM d, yyyy · h:mm a")}
           </p>
