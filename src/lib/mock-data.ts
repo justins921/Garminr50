@@ -18,6 +18,7 @@ export const MOCK_CLUBS = [
   { id: "c10", name: "Pitching Wedge", type: "wedge", loft: 43, brand: "Mizuno", model: "Pro S3", shaft: null, sortOrder: 18, isActive: true, createdAt: "2026-02-26T00:00:00Z", updatedAt: "2026-02-26T00:00:00Z", _count: { shots: 20 } },
   { id: "c11", name: "Gap Wedge", type: "wedge", loft: 50, brand: "Titleist", model: "Vokey SM10", shaft: null, sortOrder: 19, isActive: true, createdAt: "2026-02-25T00:00:00Z", updatedAt: "2026-02-25T00:00:00Z", _count: { shots: 20 } },
   { id: "c12", name: "Sand Wedge", type: "wedge", loft: 54, brand: "Titleist", model: "Vokey SM10", shaft: null, sortOrder: 20, isActive: true, createdAt: "2026-02-25T00:00:00Z", updatedAt: "2026-02-25T00:00:00Z", _count: { shots: 20 } },
+  { id: "c13", name: "Lob Wedge", type: "wedge", loft: 58, brand: "Titleist", model: "Vokey SM10", shaft: null, sortOrder: 21, isActive: true, createdAt: "2026-02-25T00:00:00Z", updatedAt: "2026-02-25T00:00:00Z", _count: { shots: 21 } },
 ];
 
 // ── Sessions ───────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ export const MOCK_SESSIONS = [
   { id: "s10", name: "Pitching Wedge Session", startedAt: "2026-02-26T08:46:00Z", endedAt: "2026-02-26T08:53:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 20 }, tags: [] },
   { id: "s11", name: "Gap Wedge Session", startedAt: "2026-02-25T19:21:00Z", endedAt: "2026-02-25T19:27:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 20 }, tags: [] },
   { id: "s12", name: "Sand Wedge Session", startedAt: "2026-02-25T15:54:00Z", endedAt: "2026-02-25T16:03:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 20 }, tags: [] },
+  { id: "s13", name: "Lob Wedge Session", startedAt: "2026-02-25T16:07:00Z", endedAt: "2026-02-25T16:14:00Z", environment: "indoor", sessionType: "practice", source: "csv-import", isLive: false, location: null, notes: null, _count: { shots: 21 }, tags: [] },
 ];
 
 // ── Real Shot Data ─────────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ interface MockShot {
   session?: { id: string; name: string };
 }
 
-const SESSION_NAMES: Record<string, string> = { s1: "Driver Session", s2: "5 Wood Session", s3: "3 Wood Session", s4: "7 Wood Session", s5: "5 Iron Session", s6: "6 Iron Session", s7: "7 Iron Session", s8: "8 Iron Session", s9: "9 Iron Session", s10: "Pitching Wedge Session", s11: "Gap Wedge Session", s12: "Sand Wedge Session" };
+const SESSION_NAMES: Record<string, string> = { s1: "Driver Session", s2: "5 Wood Session", s3: "3 Wood Session", s4: "7 Wood Session", s5: "5 Iron Session", s6: "6 Iron Session", s7: "7 Iron Session", s8: "8 Iron Session", s9: "9 Iron Session", s10: "Pitching Wedge Session", s11: "Gap Wedge Session", s12: "Sand Wedge Session", s13: "Lob Wedge Session" };
 
 // Helper to build a shot from CSV row values
 function s(
@@ -376,6 +378,28 @@ export const MOCK_SHOTS: MockShot[] = [
   s(252,"s12","c12","Sand Wedge","wedge",54,18,"2026-02-25T16:01:27Z", 79.48,-3.54,10.18,3.62,-6.56, 83.33,1.0484,29.24,4.24, 9298.9,1087.4,9362.3,-6.67, 25.0,99.53,3.4,101.78,3.4),
   s(253,"s12","c12","Sand Wedge","wedge",54,19,"2026-02-25T16:01:50Z", 79.84,-2.8,9.56,-0.84,-10.4, 86.1,1.0785,27.73,0.51, 8794.6,2341.7,9101.0,-14.91, 24.9,104.79,-10.7,107.7,-11.2),
   s(254,"s12","c12","Sand Wedge","wedge",54,20,"2026-02-25T16:02:11Z", 79.72,-3.82,10.39,1.85,-8.54, 84.11,1.055,28.13,2.82, 9063.4,1322.2,9159.3,-8.3, 24.4,101.67,-0.6,104.33,-0.8),
+  // ── Lob Wedge (session s13) ──
+  s(255,"s13","c13","Lob Wedge","wedge",58,1,"2026-02-25T16:07:21Z", 73.84,-2.27,6.16,3.08,-3.08, 68.38,0.9261,32.62,3.3, 8260.0,639.9,8284.8,-4.43, 18.5,76.21,2.9,79.23,2.9),
+  s(256,"s13","c13","Lob Wedge","wedge",58,2,"2026-02-25T16:07:42Z", 79.68,-4.17,7.33,2.46,-4.87, 76.41,0.959,29.06,2.93, 10696.3,540.0,10709.9,-2.89, 20.6,86.72,3.3,88.47,3.3),
+  s(257,"s13","c13","Lob Wedge","wedge",58,3,"2026-02-25T16:08:01Z", 79.01,-3.79,4.8,0.13,-4.67, 74.58,0.9439,32.04,0.71, 9080.3,671.6,9105.1,-4.23, 21.9,85.14,-1.2,87.25,-1.2),
+  s(258,"s13","c13","Lob Wedge","wedge",58,4,"2026-02-25T16:08:25Z", 79.48,-3.26,7.24,2.04,-5.2, 75.34,0.9479,32.46,2.58, 9117.7,656.8,9141.3,-4.12, 22.7,86.01,2.0,87.97,2.0),
+  s(259,"s13","c13","Lob Wedge","wedge",58,5,"2026-02-25T16:08:48Z", 79.5,-4.09,7.92,-1.78,-9.7, 80.28,1.0098,30.58,-0.47, 8948.1,1227.3,9031.8,-7.81, 24.1,94.77,-6.1,97.17,-6.3),
+  s(260,"s13","c13","Lob Wedge","wedge",58,6,"2026-02-25T16:09:12Z", 79.5,-3.8,7.16,1.02,-6.14, 77.24,0.9716,31.85,1.74, 9633.7,547.0,9649.2,-3.25, 23.4,88.4,1.1,90.07,1.0),
+  s(261,"s13","c13","Lob Wedge","wedge",58,7,"2026-02-25T16:09:28Z", 78.58,-3.53,6.88,0.98,-5.9, 77.91,0.9915,29.83,1.67, 10365.4,394.6,10372.9,-2.18, 22.2,89.27,1.6,90.88,1.6),
+  s(262,"s13","c13","Lob Wedge","wedge",58,8,"2026-02-25T16:09:48Z", 78.78,-3.48,7.98,2.01,-5.97, 78.09,0.9912,31.16,2.65, 9549.3,880.8,9589.8,-5.27, 23.4,90.16,1.4,92.06,1.4),
+  s(263,"s13","c13","Lob Wedge","wedge",58,9,"2026-02-25T16:10:06Z", 78.94,-3.45,6.94,1.52,-5.42, 80.26,1.0167,32.55,2.11, 9210.3,747.5,9240.6,-4.64, 26.0,93.08,0.8,94.73,0.8),
+  s(264,"s13","c13","Lob Wedge","wedge",58,10,"2026-02-25T16:10:26Z", 79.37,-2.62,7.91,-0.58,-8.49, 81.96,1.0327,32.42,0.51, 8765.3,1602.4,8910.6,-10.36, 26.8,96.23,-6.2,98.17,-6.5),
+  s(265,"s13","c13","Lob Wedge","wedge",58,11,"2026-02-25T16:10:40Z", 82.86,-2.36,14.69,0.74,-13.95, 77.62,0.9368,26.31,2.45, 9923.5,1071.0,9981.2,-6.16, 18.9,90.58,0.5,93.56,0.4),
+  s(266,"s13","c13","Lob Wedge","wedge",58,12,"2026-02-25T16:10:58Z", 78.96,-4.09,8.06,0.4,-7.66, 77.62,0.983,29.81,1.34, 9747.8,1108.9,9810.7,-6.49, 21.9,89.77,-1.6,91.83,-1.7),
+  s(267,"s13","c13","Lob Wedge","wedge",58,13,"2026-02-25T16:11:14Z", 80.19,-2.36,10.67,3.64,-7.03, 76.79,0.9576,31.63,4.32, 10242.0,470.5,10252.8,-2.63, 23.0,86.77,5.8,88.04,5.9),
+  s(268,"s13","c13","Lob Wedge","wedge",58,14,"2026-02-25T16:11:28Z", 79.41,-3.67,7.04,-3.02,-10.06, 81.22,1.0228,29.5,-1.6, 9857.2,1081.3,9916.3,-6.26, 23.9,95.25,-7.3,97.18,-7.5),
+  s(269,"s13","c13","Lob Wedge","wedge",58,15,"2026-02-25T16:11:46Z", 78.83,-4.46,10.46,1.31,-9.15, 77.13,0.9784,27.19,2.38, 9766.9,1007.6,9818.7,-5.89, 19.4,89.87,0.6,92.63,0.5),
+  s(270,"s13","c13","Lob Wedge","wedge",58,16,"2026-02-25T16:12:02Z", 78.58,-3.41,9.9,3.96,-5.94, 75.79,0.9644,29.48,4.49, 10308.0,495.1,10319.9,-2.75, 20.6,86.23,6.0,88.13,6.0),
+  s(271,"s13","c13","Lob Wedge","wedge",58,17,"2026-02-25T16:12:18Z", 77.04,-4.01,7.74,4.45,-3.29, 75.0,0.9736,29.96,4.62, 10442.0,251.6,10445.0,-1.38, 20.5,84.62,6.8,86.4,6.9),
+  s(272,"s13","c13","Lob Wedge","wedge",58,18,"2026-02-25T16:12:37Z", 77.08,-4.26,7.75,0.78,-6.97, 72.52,0.9408,32.56,1.61, 6689.1,1738.6,6911.4,-14.57, 20.6,84.48,-4.6,89.2,-5.2),
+  s(273,"s13","c13","Lob Wedge","wedge",58,19,"2026-02-25T16:12:58Z", 81.54,-3.39,11.87,1.53,-10.34, 78.9,0.9676,26.47,2.74, 9900.1,165.9,9901.5,-0.96, 19.8,92.83,4.3,95.66,4.4),
+  s(274,"s13","c13","Lob Wedge","wedge",58,20,"2026-02-25T16:13:14Z", 80.82,-3.95,8.56,-1.69,-10.25, 80.4,0.9947,24.72,-0.31, 8722.9,669.7,8748.5,-4.39, 18.9,97.1,-3.5,101.89,-3.7),
+  s(275,"s13","c13","Lob Wedge","wedge",58,21,"2026-02-25T16:13:29Z", 79.01,-3.65,9.0,1.01,-7.99, 78.87,0.9983,32.24,1.96, 9415.3,865.1,9455.0,-5.25, 24.8,90.89,0.2,92.59,0.1),
 ];
 
 // ── Club Stats (computed from real data) ───────────────────────────────────
