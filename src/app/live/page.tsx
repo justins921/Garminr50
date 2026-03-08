@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Radio, Pause, Play, Square, Wifi, WifiOff, Monitor, BarChart3 } from "lucide-react";
+import { Radio, Pause, Play, Square, Wifi, WifiOff, Monitor, BarChart3, Power } from "lucide-react";
 import { GSProShotMessage, GSPRO_CLUB_MAP } from "@/types/shot";
 import { avg } from "@/analytics/stats";
 import { toast } from "sonner";
@@ -50,6 +50,44 @@ export default function LiveSessionPage() {
   const [viewMode, setViewMode] = useState<"stats" | "simulator">("simulator");
   const [simConfig, setSimConfig] = useState<SimulatorConfig>(DEFAULT_SIM_CONFIG);
   const [currentShotInput, setCurrentShotInput] = useState<ShotInput | null>(null);
+  const [bridgeStarting, setBridgeStarting] = useState(false);
+
+  // Bridge control — start/stop from the browser
+  const startBridge = useCallback(async () => {
+    setBridgeStarting(true);
+    try {
+      const res = await fetch("/api/bridge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      });
+      const data = await res.json();
+      if (data.running) {
+        toast.success("R50 Bridge started");
+      } else {
+        toast.error("Bridge failed to start", {
+          description: data.logs?.slice(-1)[0] ?? "Check console for details",
+        });
+      }
+    } catch {
+      toast.error("Failed to start bridge");
+    } finally {
+      setBridgeStarting(false);
+    }
+  }, []);
+
+  const stopBridge = useCallback(async () => {
+    try {
+      await fetch("/api/bridge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop" }),
+      });
+      toast.info("R50 Bridge stopped");
+    } catch {
+      toast.error("Failed to stop bridge");
+    }
+  }, []);
 
   // Handle incoming WebSocket messages
   useEffect(() => {
@@ -282,10 +320,27 @@ export default function LiveSessionPage() {
               </>
             )}
 
-            {!connected && (
-              <p className="text-xs text-muted-foreground ml-auto">
-                Run <code className="bg-muted px-1 rounded">npm run bridge</code> to start the R50 bridge
-              </p>
+            {!connected ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startBridge}
+                disabled={bridgeStarting}
+                className="ml-auto"
+              >
+                <Power className="w-4 h-4 mr-2" />
+                {bridgeStarting ? "Starting..." : "Start Bridge"}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={stopBridge}
+                className="ml-auto text-muted-foreground"
+              >
+                <Power className="w-4 h-4 mr-2" />
+                Stop Bridge
+              </Button>
             )}
           </div>
         </CardContent>
