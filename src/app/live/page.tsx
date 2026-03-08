@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { StatCard } from "@/components/common/stat-card";
 import { DispersionChart } from "@/components/charts/dispersion-chart";
@@ -8,10 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Radio, Pause, Play, Square, Wifi, WifiOff } from "lucide-react";
+import { Radio, Pause, Play, Square, Wifi, WifiOff, Monitor, BarChart3 } from "lucide-react";
 import { GSProShotMessage, GSPRO_CLUB_MAP } from "@/types/shot";
 import { avg } from "@/analytics/stats";
 import { toast } from "sonner";
+import { SimulatorConfigPanel } from "@/components/simulator/simulator-config";
+import { DEFAULT_SIM_CONFIG, type SimulatorConfig } from "@/components/simulator/trajectory";
+import type { ShotInput } from "@/components/simulator/trajectory";
+
+// Lazy-load the 3D scene to avoid SSR issues with Three.js
+const BallFlightScene = lazy(() =>
+  import("@/components/simulator/ball-flight-scene").then((m) => ({ default: m.BallFlightScene }))
+);
 
 interface LiveShot {
   shotNumber: number;
@@ -22,7 +30,10 @@ interface LiveShot {
   totalDistance?: number;
   spinRate: number;
   launchAngle: number;
+  launchDirection: number;
   offlineDistance: number;
+  spinAxis?: number;
+  apexHeight?: number;
   timestamp: string;
 }
 
@@ -36,6 +47,9 @@ export default function LiveSessionPage() {
   const [selectedClub, setSelectedClub] = useState("DR");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [deviceStatus, setDeviceStatus] = useState<string>("disconnected");
+  const [viewMode, setViewMode] = useState<"stats" | "simulator">("simulator");
+  const [simConfig, setSimConfig] = useState<SimulatorConfig>(DEFAULT_SIM_CONFIG);
+  const [currentShotInput, setCurrentShotInput] = useState<ShotInput | null>(null);
 
   // Handle incoming WebSocket messages
   useEffect(() => {
@@ -53,11 +67,25 @@ export default function LiveSessionPage() {
         carryDistance: msg.BallData.CarryDistance,
         spinRate: msg.BallData.TotalSpin,
         launchAngle: msg.BallData.VLA,
+        launchDirection: msg.BallData.HLA,
         offlineDistance: msg.BallData.HLA * 2, // approximate
+        spinAxis: msg.BallData.SpinAxis,
         timestamp: lastMessage.timestamp as string,
       };
 
       setShots((prev) => [...prev, newShot]);
+
+      // Update simulator with the new shot
+      setCurrentShotInput({
+        ballSpeed: newShot.ballSpeed,
+        launchAngle: newShot.launchAngle,
+        launchDirection: newShot.launchDirection,
+        spinRate: newShot.spinRate,
+        spinAxis: newShot.spinAxis,
+        carryDistance: newShot.carryDistance,
+        offlineDistance: newShot.offlineDistance,
+        apexHeight: newShot.apexHeight,
+      });
 
       // Save to database
       if (sessionId) {
@@ -107,6 +135,7 @@ export default function LiveSessionPage() {
     setSessionActive(true);
     setSessionPaused(false);
     setShots([]);
+    setCurrentShotInput(null);
     toast.success("Live session started");
   }, []);
 
@@ -142,6 +171,21 @@ export default function LiveSessionPage() {
     ballSpeed: s.ballSpeed,
   }));
 
+  // Previous shots for the simulator (all except the current one being animated)
+  const previousShotInputs: ShotInput[] = useMemo(() => {
+    if (shots.length <= 1) return [];
+    return shots.slice(0, -1).map((s) => ({
+      ballSpeed: s.ballSpeed,
+      launchAngle: s.launchAngle,
+      launchDirection: s.launchDirection,
+      spinRate: s.spinRate,
+      spinAxis: s.spinAxis,
+      carryDistance: s.carryDistance,
+      offlineDistance: s.offlineDistance,
+      apexHeight: s.apexHeight,
+    }));
+  }, [shots]);
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -156,17 +200,43 @@ export default function LiveSessionPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* View mode toggle */}
+          <div className="flex rounded-md border overflow-hidden">
+            <button
+              onClick={() => setViewMode("simulator")}
+              className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === "simulator"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              Simulator
+            </button>
+            <button
+              onClick={() => setViewMode("stats")}
+              className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === "stats"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Stats
+            </button>
+          </div>
+
           {/* Connection status */}
           <div className="flex items-center gap-2 text-sm">
             {connected ? (
               <>
                 <Wifi className="w-4 h-4 text-emerald-500" />
-                <span className="text-emerald-500">Bridge Connected</span>
+                <span className="text-emerald-500 hidden sm:inline">Bridge Connected</span>
               </>
             ) : (
               <>
                 <WifiOff className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Bridge Offline</span>
+                <span className="text-muted-foreground hidden sm:inline">Bridge Offline</span>
               </>
             )}
             {deviceStatus === "connected" && (
@@ -221,63 +291,103 @@ export default function LiveSessionPage() {
         </CardContent>
       </Card>
 
-      {/* Live Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-        <StatCard label="Shots" value={shots.length} accent={sessionActive} />
-        <StatCard label="Avg Carry" value={carries.length ? Math.round(avg(carries)) : "—"} unit="yds" />
-        <StatCard label="Avg Ball Speed" value={ballSpeeds.length ? Math.round(avg(ballSpeeds)) : "—"} unit="mph" />
-        <StatCard label="Avg Spin" value={spins.length ? Math.round(avg(spins)) : "—"} unit="rpm" />
-        <StatCard
-          label="Last Shot"
-          value={shots.length > 0 ? `${shots[shots.length - 1].carryDistance ?? "?"}` : "—"}
-          unit={shots.length > 0 ? "yds" : ""}
-          subtitle={shots.length > 0 ? shots[shots.length - 1].clubName : undefined}
-        />
-      </div>
+      {viewMode === "simulator" ? (
+        <>
+          {/* Simulator Config */}
+          <SimulatorConfigPanel config={simConfig} onChange={setSimConfig} />
 
-      {/* Live Charts + Shot List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Live Dispersion</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DispersionChart data={dispersionData} title="" height={350} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Shot List</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-[380px] overflow-y-auto space-y-1">
-              {shots.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  {sessionActive ? "Waiting for shots..." : "Start a session to begin"}
+          {/* 3D Ball Flight View */}
+          <div className="w-full aspect-[16/9] min-h-[400px] rounded-lg overflow-hidden border border-border">
+            <Suspense
+              fallback={
+                <div className="w-full h-full bg-[#0c1222] flex items-center justify-center text-muted-foreground">
+                  Loading simulator...
                 </div>
-              ) : (
-                [...shots].reverse().map((shot, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-accent text-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-6 text-right">#{shot.shotNumber}</span>
-                      <span className="font-medium">{shot.clubName}</span>
+              }
+            >
+              <BallFlightScene
+                currentShot={currentShotInput}
+                previousShots={previousShotInputs}
+                config={simConfig}
+              />
+            </Suspense>
+          </div>
+
+          {/* Compact stats bar below simulator */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <StatCard label="Shots" value={shots.length} accent={sessionActive} />
+            <StatCard label="Avg Carry" value={carries.length ? Math.round(avg(carries)) : "—"} unit="yds" />
+            <StatCard label="Avg Ball Speed" value={ballSpeeds.length ? Math.round(avg(ballSpeeds)) : "—"} unit="mph" />
+            <StatCard label="Avg Spin" value={spins.length ? Math.round(avg(spins)) : "—"} unit="rpm" />
+            <StatCard
+              label="Last Shot"
+              value={shots.length > 0 ? `${shots[shots.length - 1].carryDistance ?? "?"}` : "—"}
+              unit={shots.length > 0 ? "yds" : ""}
+              subtitle={shots.length > 0 ? shots[shots.length - 1].clubName : undefined}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Original stats view */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <StatCard label="Shots" value={shots.length} accent={sessionActive} />
+            <StatCard label="Avg Carry" value={carries.length ? Math.round(avg(carries)) : "—"} unit="yds" />
+            <StatCard label="Avg Ball Speed" value={ballSpeeds.length ? Math.round(avg(ballSpeeds)) : "—"} unit="mph" />
+            <StatCard label="Avg Spin" value={spins.length ? Math.round(avg(spins)) : "—"} unit="rpm" />
+            <StatCard
+              label="Last Shot"
+              value={shots.length > 0 ? `${shots[shots.length - 1].carryDistance ?? "?"}` : "—"}
+              unit={shots.length > 0 ? "yds" : ""}
+              subtitle={shots.length > 0 ? shots[shots.length - 1].clubName : undefined}
+            />
+          </div>
+
+          {/* Charts + Shot List */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Live Dispersion</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DispersionChart data={dispersionData} title="" height={350} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Shot List</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-[380px] overflow-y-auto space-y-1">
+                  {shots.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground text-sm">
+                      {sessionActive ? "Waiting for shots..." : "Start a session to begin"}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
-                      <span>{shot.carryDistance ?? "?"} yds</span>
-                      <span>{Math.round(shot.ballSpeed)} mph</span>
-                      <span>{Math.round(shot.spinRate)} rpm</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  ) : (
+                    [...shots].reverse().map((shot, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-accent text-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-6 text-right">#{shot.shotNumber}</span>
+                          <span className="font-medium">{shot.clubName}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
+                          <span>{shot.carryDistance ?? "?"} yds</span>
+                          <span>{Math.round(shot.ballSpeed)} mph</span>
+                          <span>{Math.round(shot.spinRate)} rpm</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }
