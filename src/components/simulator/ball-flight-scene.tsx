@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useMemo, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Text, Line, Sky, Billboard, GradientTexture } from "@react-three/drei";
+import { useRef, useMemo, useState, useCallback } from "react";
+import { Canvas, useFrame, useThree, extend } from "@react-three/fiber";
+import { Text, Line, Sky, Billboard, Clouds, Cloud, Sparkles, useTexture } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping, HueSaturation, BrightnessContrast } from "@react-three/postprocessing";
+import { BlendFunction, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import {
   ShotInput,
@@ -15,56 +17,146 @@ import {
 
 const YDS_TO_M = 0.9144;
 
-// ─── Procedural grass texture ───────────────────────────────────────────────
+// ─── Procedural texture generators ──────────────────────────────────────────
 
-function useGrassTexture(color1: string, color2: string, size = 512) {
+function useProceduralGrass(
+  baseHex: string,
+  variantHex: string,
+  darkHex: string,
+  size = 1024,
+  density = 20000,
+) {
   return useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d")!;
 
-    // Base color
-    ctx.fillStyle = color1;
+    const base = new THREE.Color(baseHex);
+    const variant = new THREE.Color(variantHex);
+    const dark = new THREE.Color(darkHex);
+
+    // Soft gradient base
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.7);
+    grad.addColorStop(0, `#${base.getHexString()}`);
+    grad.addColorStop(1, `#${variant.getHexString()}`);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
 
-    // Random grass blades / variation
-    const c1 = new THREE.Color(color1);
-    const c2 = new THREE.Color(color2);
-    for (let i = 0; i < 8000; i++) {
+    // Mowing stripe pattern (subtle lighter/darker bands)
+    for (let y = 0; y < size; y += 32) {
+      const stripe = (Math.floor(y / 32) % 2 === 0) ? 1.06 : 0.94;
+      ctx.fillStyle = `rgba(${stripe > 1 ? 255 : 0}, ${stripe > 1 ? 255 : 0}, ${stripe > 1 ? 255 : 0}, 0.03)`;
+      ctx.fillRect(0, y, size, 32);
+    }
+
+    // Individual grass blades
+    for (let i = 0; i < density; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const blend = Math.random();
-      const c = c1.clone().lerp(c2, blend);
+      const c = blend < 0.7
+        ? base.clone().lerp(variant, Math.random())
+        : base.clone().lerp(dark, Math.random() * 0.5);
+      const brightness = 0.85 + Math.random() * 0.3;
+      c.multiplyScalar(brightness);
       ctx.fillStyle = `#${c.getHexString()}`;
-      ctx.fillRect(x, y, 1 + Math.random() * 2, 2 + Math.random() * 4);
+      // Thin vertical blade shapes
+      const w = 0.5 + Math.random() * 1.5;
+      const h = 2 + Math.random() * 6;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((Math.random() - 0.5) * 0.3);
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+
+    // Subtle noise overlay for depth
+    for (let i = 0; i < 5000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const alpha = Math.random() * 0.06;
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(x, y, 2, 2);
     }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(40, 60);
+    tex.anisotropy = 16;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
     return tex;
-  }, [color1, color2, size]);
+  }, [baseHex, variantHex, darkHex, size, density]);
 }
 
-// ─── Tree (simple billboard cone + trunk) ───────────────────────────────────
+function useNormalMap(size = 512) {
+  return useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    // Neutral normal (pointing up)
+    ctx.fillStyle = "#8080ff";
+    ctx.fillRect(0, 0, size, size);
+    // Slight perturbations to simulate grass surface
+    for (let i = 0; i < 10000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const r = 128 + (Math.random() - 0.5) * 30;
+      const g = 128 + (Math.random() - 0.5) * 30;
+      ctx.fillStyle = `rgb(${r},${g},255)`;
+      ctx.fillRect(x, y, 1 + Math.random() * 2, 2 + Math.random() * 5);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(30, 50);
+    return tex;
+  }, [size]);
+}
 
-function Tree({ position, height = 8 }: { position: [number, number, number]; height?: number }) {
-  const trunkHeight = height * 0.3;
-  const canopyHeight = height * 0.7;
+// ─── Deciduous tree (rounded canopy with multiple spheres) ──────────────────
+
+function DeciduousTree({ position, height = 8, seed = 0 }: { position: [number, number, number]; height?: number; seed?: number }) {
+  const trunkH = height * 0.35;
+  const canopyR = height * 0.28;
+  // Seeded pseudo-random for consistent trees
+  const s = Math.sin(seed * 127.1) * 43758.5453;
+  const r1 = (s - Math.floor(s));
+  const s2 = Math.sin(seed * 269.5) * 43758.5453;
+  const r2 = (s2 - Math.floor(s2));
+
+  const leafColor = useMemo(() => {
+    const colors = ["#2d6e2d", "#337a33", "#2b7a1f", "#3a8c2a", "#276e1f", "#358035"];
+    return colors[Math.floor(r1 * colors.length)];
+  }, [r1]);
+
+  const leafColorDark = useMemo(() => {
+    const c = new THREE.Color(leafColor);
+    c.multiplyScalar(0.75);
+    return `#${c.getHexString()}`;
+  }, [leafColor]);
+
   return (
     <group position={position}>
-      {/* Trunk */}
-      <mesh position={[0, trunkHeight / 2, 0]}>
-        <cylinderGeometry args={[0.15, 0.25, trunkHeight, 6]} />
-        <meshStandardMaterial color="#5c3a1e" />
+      {/* Trunk — tapered cylinder with bark color */}
+      <mesh position={[0, trunkH / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.12, 0.22 + r2 * 0.08, trunkH, 8]} />
+        <meshStandardMaterial color="#5c3a1e" roughness={0.95} />
       </mesh>
-      {/* Canopy - layered cones for fullness */}
-      {[0, 0.35, 0.65].map((offset, i) => (
-        <mesh key={i} position={[0, trunkHeight + canopyHeight * offset, 0]}>
-          <coneGeometry args={[1.8 - i * 0.3, canopyHeight * 0.55, 7]} />
+
+      {/* Canopy — overlapping spheres for organic shape */}
+      {[
+        [0, trunkH + canopyR * 0.9, 0, canopyR * 1.1],
+        [canopyR * 0.4 * (r1 - 0.5), trunkH + canopyR * 1.4, canopyR * 0.3 * (r2 - 0.5), canopyR * 0.85],
+        [-canopyR * 0.3 * r2, trunkH + canopyR * 0.5, canopyR * 0.4 * r1, canopyR * 0.9],
+        [canopyR * 0.25, trunkH + canopyR * 1.7, -canopyR * 0.2, canopyR * 0.7],
+      ].map(([cx, cy, cz, cr], i) => (
+        <mesh key={i} position={[cx, cy, cz]} castShadow>
+          <sphereGeometry args={[cr, 12, 10]} />
           <meshStandardMaterial
-            color={i === 1 ? "#2d6b2d" : "#1f5c1f"}
+            color={i % 2 === 0 ? leafColor : leafColorDark}
+            roughness={0.85}
             flatShading
           />
         </mesh>
@@ -73,33 +165,93 @@ function Tree({ position, height = 8 }: { position: [number, number, number]; he
   );
 }
 
-// ─── Tree line along edges ──────────────────────────────────────────────────
+// ─── Pine tree (conifer) ────────────────────────────────────────────────────
+
+function PineTree({ position, height = 10, seed = 0 }: { position: [number, number, number]; height?: number; seed?: number }) {
+  const trunkH = height * 0.25;
+  const s = Math.sin(seed * 311.7) * 43758.5453;
+  const r = s - Math.floor(s);
+
+  return (
+    <group position={position}>
+      <mesh position={[0, trunkH / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.18, trunkH, 6]} />
+        <meshStandardMaterial color="#4a2e14" roughness={0.95} />
+      </mesh>
+      {/* Layered cones — more layers for realism */}
+      {[0, 0.22, 0.42, 0.6, 0.76].map((offset, i) => {
+        const layerRadius = (2.2 - i * 0.35) * (0.9 + r * 0.2);
+        const layerH = height * 0.22;
+        return (
+          <mesh key={i} position={[0, trunkH + height * 0.7 * offset, 0]} castShadow>
+            <coneGeometry args={[layerRadius, layerH, 8]} />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? "#1f5c1f" : "#1a4f1a"}
+              roughness={0.9}
+              flatShading
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Forest tree line ───────────────────────────────────────────────────────
 
 function TreeLine() {
   const trees = useMemo(() => {
-    const result: { pos: [number, number, number]; h: number }[] = [];
-    // Left side
-    for (let z = 20; z < 300; z += 6 + Math.random() * 8) {
-      const x = -38 - Math.random() * 15;
-      result.push({ pos: [x, 0, z * YDS_TO_M], h: 7 + Math.random() * 6 });
+    const result: { pos: [number, number, number]; h: number; type: "d" | "p"; seed: number }[] = [];
+    const rng = (i: number) => {
+      const s = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      return s - Math.floor(s);
+    };
+    let idx = 0;
+
+    // Left tree line — dense, multiple rows
+    for (let row = 0; row < 3; row++) {
+      for (let z = 10; z < 310; z += 4 + rng(idx) * 6) {
+        const x = -36 - row * 6 - rng(idx + 1) * 5;
+        const h = 7 + rng(idx + 2) * 7;
+        const type = rng(idx + 3) > 0.4 ? "d" : "p";
+        result.push({ pos: [x, 0, z * YDS_TO_M], h, type, seed: idx });
+        idx++;
+      }
     }
-    // Right side
-    for (let z = 20; z < 300; z += 6 + Math.random() * 8) {
-      const x = 38 + Math.random() * 15;
-      result.push({ pos: [x, 0, z * YDS_TO_M], h: 7 + Math.random() * 6 });
+
+    // Right tree line
+    for (let row = 0; row < 3; row++) {
+      for (let z = 10; z < 310; z += 4 + rng(idx) * 6) {
+        const x = 36 + row * 6 + rng(idx + 1) * 5;
+        const h = 7 + rng(idx + 2) * 7;
+        const type = rng(idx + 3) > 0.4 ? "d" : "p";
+        result.push({ pos: [x, 0, z * YDS_TO_M], h, type, seed: idx });
+        idx++;
+      }
     }
-    // Back tree line
-    for (let x = -50; x < 50; x += 4 + Math.random() * 5) {
-      result.push({ pos: [x, 0, 310 * YDS_TO_M], h: 8 + Math.random() * 5 });
+
+    // Back wall of trees
+    for (let row = 0; row < 3; row++) {
+      for (let x = -55; x < 55; x += 3 + rng(idx) * 4) {
+        const z = 305 + row * 5 + rng(idx + 1) * 3;
+        const h = 9 + rng(idx + 2) * 5;
+        result.push({ pos: [x, 0, z * YDS_TO_M], h, type: rng(idx + 3) > 0.5 ? "d" : "p", seed: idx });
+        idx++;
+      }
     }
+
     return result;
   }, []);
 
   return (
     <>
-      {trees.map((t, i) => (
-        <Tree key={i} position={t.pos} height={t.h} />
-      ))}
+      {trees.map((t, i) =>
+        t.type === "d" ? (
+          <DeciduousTree key={i} position={t.pos} height={t.h} seed={t.seed} />
+        ) : (
+          <PineTree key={i} position={t.pos} height={t.h} seed={t.seed} />
+        )
+      )}
     </>
   );
 }
@@ -108,119 +260,266 @@ function TreeLine() {
 
 function TargetGreen({ yardage }: { yardage: number }) {
   const z = yardage * YDS_TO_M;
-  const radius = 4 + yardage * 0.02; // bigger greens further out
+  const radius = 4 + yardage * 0.02;
 
   return (
-    <group position={[0, 0.01, z]}>
-      {/* Green surface */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius, 32]} />
-        <meshStandardMaterial color="#2a8a2a" />
+    <group position={[0, 0.015, z]}>
+      {/* Green — brighter, shorter cut */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[radius, 48]} />
+        <meshStandardMaterial color="#2eb82e" roughness={0.6} />
       </mesh>
-      {/* Darker ring around green */}
+      {/* Apron / collar */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]}>
+        <ringGeometry args={[radius, radius + 1.5, 48]} />
+        <meshStandardMaterial color="#238a23" roughness={0.7} />
+      </mesh>
+      {/* Fringe */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]}>
-        <ringGeometry args={[radius, radius + 1, 32]} />
-        <meshStandardMaterial color="#1a5c1a" />
+        <ringGeometry args={[radius + 1.5, radius + 2.5, 48]} />
+        <meshStandardMaterial color="#2a7a2a" roughness={0.8} />
       </mesh>
-      {/* Flag pole */}
-      <mesh position={[0, 1.5, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 3, 6]} />
-        <meshStandardMaterial color="#d4d4d4" />
+
+      {/* Flag pole — metallic */}
+      <mesh position={[0, 1.5, 0]} castShadow>
+        <cylinderGeometry args={[0.02, 0.02, 3, 8]} />
+        <meshStandardMaterial color="#cccccc" metalness={0.8} roughness={0.2} />
       </mesh>
       {/* Flag */}
-      <mesh position={[0.4, 2.7, 0]}>
-        <planeGeometry args={[0.8, 0.5]} />
+      <mesh position={[0.35, 2.75, 0]} castShadow>
+        <planeGeometry args={[0.7, 0.45]} />
         <meshStandardMaterial
-          color={yardage <= 100 ? "#ef4444" : yardage <= 200 ? "#eab308" : "#3b82f6"}
+          color={yardage <= 100 ? "#dc2626" : yardage <= 200 ? "#ca8a04" : "#2563eb"}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Yardage sign */}
-      <Billboard position={[radius + 1.5, 1.2, 0]}>
-        <Text fontSize={1.4} color="#ffffff" outlineColor="#000000" outlineWidth={0.08}>
-          {yardage}
-        </Text>
-      </Billboard>
+
+      {/* Yardage sign post */}
+      <group position={[radius + 2, 0, 0]}>
+        <mesh position={[0, 0.5, 0]} castShadow>
+          <cylinderGeometry args={[0.04, 0.04, 1, 6]} />
+          <meshStandardMaterial color="#8B7355" roughness={0.9} />
+        </mesh>
+        <Billboard position={[0, 1.2, 0]}>
+          {/* Sign board background */}
+          <mesh>
+            <planeGeometry args={[2, 1]} />
+            <meshStandardMaterial color="#2d1b0e" roughness={0.9} />
+          </mesh>
+          <Text fontSize={0.65} color="#f5e6c8" anchorY="middle" position={[0, 0, 0.01]}>
+            {yardage} YDS
+          </Text>
+        </Billboard>
+      </group>
     </group>
   );
 }
 
-// ─── Divider lines between bays ─────────────────────────────────────────────
+// ─── Sand bunkers near greens ───────────────────────────────────────────────
+
+function Bunker({ position, radiusX = 3, radiusZ = 2 }: { position: [number, number, number]; radiusX?: number; radiusZ?: number }) {
+  const sandGeo = useMemo(() => {
+    const geo = new THREE.CircleGeometry(1, 32);
+    geo.scale(radiusX, radiusZ, 1);
+    return geo;
+  }, [radiusX, radiusZ]);
+
+  return (
+    <group position={position}>
+      {/* Sand */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} geometry={sandGeo}>
+        <meshStandardMaterial color="#e8d5a3" roughness={0.95} />
+      </mesh>
+      {/* Lip shadow ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]}>
+        <ringGeometry args={[Math.min(radiusX, radiusZ) * 0.85, Math.min(radiusX, radiusZ), 32]} />
+        <meshStandardMaterial color="#c4a56e" roughness={0.95} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Water pond ─────────────────────────────────────────────────────────────
+
+function Pond({ position, radius = 8 }: { position: [number, number, number]; radius?: number }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+    mat.envMapIntensity = 0.8 + Math.sin(clock.elapsedTime * 0.5) * 0.1;
+  });
+
+  return (
+    <group position={position}>
+      <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
+        <circleGeometry args={[radius, 48]} />
+        <meshStandardMaterial
+          color="#1a5566"
+          roughness={0.05}
+          metalness={0.3}
+          transparent
+          opacity={0.85}
+        />
+      </mesh>
+      {/* Bank/edge */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.06, 0]}>
+        <ringGeometry args={[radius, radius + 1.2, 48]} />
+        <meshStandardMaterial color="#5c4a2e" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Tee mat with realistic detail ──────────────────────────────────────────
+
+function TeeMat() {
+  return (
+    <group position={[0, 0.012, 0]}>
+      {/* Rubber base */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]} receiveShadow>
+        <planeGeometry args={[1.8, 1.8]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.95} />
+      </mesh>
+      {/* Turf surface */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[1.5, 1.5]} />
+        <meshStandardMaterial color="#368836" roughness={0.85} />
+      </mesh>
+      {/* Tee */}
+      <mesh position={[0, 0.02, -0.05]} castShadow>
+        <cylinderGeometry args={[0.008, 0.015, 0.05, 8]} />
+        <meshStandardMaterial color="#d4a574" roughness={0.6} />
+      </mesh>
+      {/* Ball on tee */}
+      <mesh position={[0, 0.055, -0.05]} castShadow>
+        <sphereGeometry args={[0.021, 16, 16]} />
+        <meshStandardMaterial color="#f0f0f0" roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Bay dividers — rubber mats and partitions ──────────────────────────────
 
 function BayDividers() {
   return (
     <>
-      {[-3, 3].map((x) => (
-        <Line
-          key={x}
-          points={[
-            [x, 0.02, -2],
-            [x, 0.02, 8],
-          ]}
-          color="#8b8b6b"
-          lineWidth={1.5}
-        />
+      {[-3.2, 3.2].map((x) => (
+        <group key={x}>
+          {/* Partition post */}
+          <mesh position={[x, 0.5, 0]} castShadow>
+            <boxGeometry args={[0.08, 1, 0.08]} />
+            <meshStandardMaterial color="#555555" metalness={0.6} roughness={0.3} />
+          </mesh>
+          {/* Ground line */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.005, 2]}>
+            <planeGeometry args={[0.05, 6]} />
+            <meshStandardMaterial color="#666666" />
+          </mesh>
+        </group>
       ))}
     </>
   );
 }
 
-// ─── Tee mat ────────────────────────────────────────────────────────────────
+// ─── Side netting — realistic net mesh ──────────────────────────────────────
 
-function TeeMat() {
+function SideNetting() {
+  const netHeight = 15;
+  const length = 300 * YDS_TO_M;
+
+  const netGeometry = useMemo(() => {
+    // Create a grid of lines to simulate netting
+    const positions: number[] = [];
+    const spacing = 2;
+    // Verticals
+    for (let z = 0; z < length; z += spacing) {
+      positions.push(0, 0, z, 0, netHeight, z);
+    }
+    // Horizontals
+    for (let y = 0; y < netHeight; y += spacing) {
+      positions.push(0, y, 0, 0, y, length);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    return geo;
+  }, [length, netHeight]);
+
   return (
-    <group position={[0, 0.01, 0]}>
-      {/* Mat surface */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[1.5, 1.5]} />
-        <meshStandardMaterial color="#3d7a3d" roughness={0.9} />
+    <>
+      {[-37, 37].map((x) => (
+        <group key={x} position={[x, 0, 0]}>
+          {/* Net lines */}
+          <lineSegments geometry={netGeometry}>
+            <lineBasicMaterial color="#222222" opacity={0.12} transparent />
+          </lineSegments>
+          {/* Steel poles */}
+          {Array.from({ length: Math.floor(length / 20) + 1 }, (_, i) => (
+            <mesh key={i} position={[0, netHeight / 2, i * 20]} castShadow>
+              <cylinderGeometry args={[0.06, 0.08, netHeight, 8]} />
+              <meshStandardMaterial color="#777777" metalness={0.7} roughness={0.3} />
+            </mesh>
+          ))}
+          {/* Top cable */}
+          <Line
+            points={Array.from({ length: Math.floor(length / 20) + 1 }, (_, i) => [
+              0, netHeight, i * 20,
+            ] as [number, number, number])}
+            color="#555555"
+            lineWidth={1.5}
+          />
+        </group>
+      ))}
+    </>
+  );
+}
+
+// ─── Impact screen ──────────────────────────────────────────────────────────
+
+function ImpactScreen({ config }: { config: SimulatorConfig }) {
+  const m = configToMeters(config);
+  return (
+    <group position={[0, m.screenHeight / 2, m.screenDistance]}>
+      <mesh>
+        <planeGeometry args={[m.screenWidth, m.screenHeight]} />
+        <meshBasicMaterial color="#ffffff" opacity={0.06} transparent side={THREE.DoubleSide} />
       </mesh>
-      {/* Mat border */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]}>
-        <planeGeometry args={[1.7, 1.7]} />
-        <meshStandardMaterial color="#2a2a2a" />
-      </mesh>
-      {/* Tee marker */}
-      <mesh position={[0, 0.02, 0]}>
-        <cylinderGeometry args={[0.01, 0.02, 0.04, 8]} />
-        <meshStandardMaterial color="#d4a574" />
-      </mesh>
+      <Line
+        points={[
+          [-m.screenWidth / 2, -m.screenHeight / 2, 0],
+          [m.screenWidth / 2, -m.screenHeight / 2, 0],
+          [m.screenWidth / 2, m.screenHeight / 2, 0],
+          [-m.screenWidth / 2, m.screenHeight / 2, 0],
+          [-m.screenWidth / 2, -m.screenHeight / 2, 0],
+        ]}
+        color="#aaaaaa"
+        lineWidth={0.5}
+        opacity={0.2}
+        transparent
+      />
     </group>
   );
 }
 
-// ─── Distance markers (yard signs with poles) ───────────────────────────────
-
-function DistanceMarkers() {
-  const markers = [50, 100, 150, 200, 250, 300];
-  return (
-    <>
-      {markers.map((yds) => (
-        <TargetGreen key={yds} yardage={yds} />
-      ))}
-    </>
-  );
-}
-
-// ─── Landing zone target circles ────────────────────────────────────────────
+// ─── Landing zone (impact mark) ─────────────────────────────────────────────
 
 function LandingZone({ position }: { position: THREE.Vector3 }) {
   return (
-    <group position={[position.x, 0.03, position.z]}>
-      {/* Impact mark on the ground */}
+    <group position={[position.x, 0.025, position.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.6, 16]} />
-        <meshBasicMaterial color="#ffffff" opacity={0.7} transparent />
+        <circleGeometry args={[0.4, 16]} />
+        <meshBasicMaterial color="#ffffff" opacity={0.8} transparent />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]}>
-        <ringGeometry args={[0.6, 1.2, 16]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]}>
+        <ringGeometry args={[0.4, 0.8, 16]} />
         <meshBasicMaterial color="#ffffff" opacity={0.3} transparent />
       </mesh>
     </group>
   );
 }
 
-// ─── Animated ball along trajectory ─────────────────────────────────────────
+// ─── Animated ball with shadow ──────────────────────────────────────────────
 
 function AnimatedBall({
   trajectory,
@@ -233,18 +532,26 @@ function AnimatedBall({
   onComplete?: () => void;
   speed?: number;
 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const shadowRef = useRef<THREE.Mesh>(null);
   const progressRef = useRef(startIndex);
   const completedRef = useRef(false);
 
   useFrame((_, delta) => {
-    if (!meshRef.current || completedRef.current) return;
+    if (!groupRef.current || completedRef.current) return;
 
     progressRef.current += delta * trajectory.length * speed;
     const idx = Math.min(Math.floor(progressRef.current), trajectory.length - 1);
-
     const point = trajectory[idx];
-    meshRef.current.position.copy(point);
+
+    groupRef.current.position.copy(point);
+
+    // Ground shadow follows ball
+    if (shadowRef.current) {
+      shadowRef.current.position.set(point.x, 0.01, point.z);
+      const shadowScale = Math.max(0.1, 1 - point.y * 0.01);
+      shadowRef.current.scale.set(shadowScale, shadowScale, 1);
+    }
 
     if (idx >= trajectory.length - 1 && !completedRef.current) {
       completedRef.current = true;
@@ -253,23 +560,38 @@ function AnimatedBall({
   });
 
   return (
-    <mesh ref={meshRef} position={trajectory[startIndex]}>
-      <sphereGeometry args={[0.15, 16, 16]} />
-      <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.3} roughness={0.3} />
-    </mesh>
+    <>
+      <group ref={groupRef} position={trajectory[startIndex]}>
+        {/* Ball — bright with glow for bloom to pick up */}
+        <mesh>
+          <sphereGeometry args={[0.15, 20, 20]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            emissive="#ffffff"
+            emissiveIntensity={1.5}
+            roughness={0.2}
+          />
+        </mesh>
+        {/* Subtle point light on ball for glow effect */}
+        <pointLight color="#ffffff" intensity={2} distance={5} decay={2} />
+      </group>
+      {/* Ground shadow */}
+      <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[0.3, 12]} />
+        <meshBasicMaterial color="#000000" opacity={0.25} transparent />
+      </mesh>
+    </>
   );
 }
 
-// ─── Shot trail (animated tracer line) ──────────────────────────────────────
+// ─── Shot trail (animated) ──────────────────────────────────────────────────
 
 function ShotTrail({
   trajectory,
   startIndex,
-  color = "#ffffff",
 }: {
   trajectory: THREE.Vector3[];
   startIndex: number;
-  color?: string;
 }) {
   const progressRef = useRef(startIndex);
   const [visiblePoints, setVisiblePoints] = useState<[number, number, number][]>([]);
@@ -277,14 +599,10 @@ function ShotTrail({
   useFrame((_, delta) => {
     progressRef.current += delta * trajectory.length * 1.5;
     const idx = Math.min(Math.floor(progressRef.current), trajectory.length - 1);
-
     const pts = trajectory
       .slice(startIndex, idx + 1)
       .map((p) => [p.x, p.y, p.z] as [number, number, number]);
-
-    if (pts.length >= 2) {
-      setVisiblePoints(pts);
-    }
+    if (pts.length >= 2) setVisiblePoints(pts);
   });
 
   if (visiblePoints.length < 2) return null;
@@ -292,21 +610,17 @@ function ShotTrail({
   return (
     <Line
       points={visiblePoints}
-      color={color}
+      color="#ffffff"
       lineWidth={2}
-      opacity={0.85}
+      opacity={0.9}
       transparent
     />
   );
 }
 
-// ─── Previous shot trails (static) ─────────────────────────────────────────
+// ─── Previous shot trails ───────────────────────────────────────────────────
 
-function PreviousShotTrails({
-  shots,
-}: {
-  shots: { trajectory: THREE.Vector3[]; startIndex: number }[];
-}) {
+function PreviousShotTrails({ shots }: { shots: { trajectory: THREE.Vector3[]; startIndex: number }[] }) {
   return (
     <>
       {shots.map((shot, idx) => {
@@ -314,16 +628,9 @@ function PreviousShotTrails({
           .slice(shot.startIndex)
           .map((p) => [p.x, p.y, p.z] as [number, number, number]);
         if (pts.length < 2) return null;
-
         return (
           <group key={idx}>
-            <Line
-              points={pts}
-              color="#a3a3a3"
-              lineWidth={1}
-              opacity={0.25}
-              transparent
-            />
+            <Line points={pts} color="#cccccc" lineWidth={0.8} opacity={0.2} transparent />
             <LandingZone position={shot.trajectory[shot.trajectory.length - 1]} />
           </group>
         );
@@ -332,66 +639,19 @@ function PreviousShotTrails({
   );
 }
 
-// ─── Impact screen (semi-transparent, inside room) ──────────────────────────
+// ─── Shot info HUD ──────────────────────────────────────────────────────────
 
-function ImpactScreen({ config }: { config: SimulatorConfig }) {
-  const m = configToMeters(config);
-
-  return (
-    <group position={[0, m.screenHeight / 2, m.screenDistance]}>
-      <mesh>
-        <planeGeometry args={[m.screenWidth, m.screenHeight]} />
-        <meshBasicMaterial
-          color="#e8e8e8"
-          opacity={0.08}
-          transparent
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      {/* Faint border */}
-      <Line
-        points={[
-          [-m.screenWidth / 2, -m.screenHeight / 2, 0],
-          [m.screenWidth / 2, -m.screenHeight / 2, 0],
-          [m.screenWidth / 2, m.screenHeight / 2, 0],
-          [-m.screenWidth / 2, m.screenHeight / 2, 0],
-          [-m.screenWidth / 2, -m.screenHeight / 2, 0],
-        ]}
-        color="#888888"
-        lineWidth={1}
-        opacity={0.3}
-        transparent
-      />
-    </group>
-  );
-}
-
-// ─── Shot info HUD (billboard so it faces camera) ───────────────────────────
-
-function ShotInfoHUD({
-  shot,
-  position,
-}: {
-  shot: ShotInput;
-  position: [number, number, number];
-}) {
+function ShotInfoHUD({ shot, position }: { shot: ShotInput; position: [number, number, number] }) {
   const carry = shot.carryDistance ?? 0;
   const offline = shot.offlineDistance ?? 0;
   const direction = offline < -2 ? "L" : offline > 2 ? "R" : "";
 
   return (
     <Billboard position={position}>
-      <Text fontSize={2.2} color="#ffffff" outlineColor="#000000" outlineWidth={0.1} anchorY="bottom">
+      <Text fontSize={2.4} color="#ffffff" outlineColor="#000000" outlineWidth={0.12} anchorY="bottom" font={undefined}>
         {Math.round(carry)} YDS
       </Text>
-      <Text
-        fontSize={1}
-        color="#d4d4d4"
-        outlineColor="#000000"
-        outlineWidth={0.06}
-        anchorY="top"
-        position={[0, -0.3, 0]}
-      >
+      <Text fontSize={1} color="#e0e0e0" outlineColor="#000000" outlineWidth={0.06} anchorY="top" position={[0, -0.4, 0]} font={undefined}>
         {Math.round(shot.ballSpeed)} mph · {Math.round(shot.spinRate)} rpm
         {direction ? ` · ${Math.abs(Math.round(offline))}${direction}` : ""}
       </Text>
@@ -399,46 +659,68 @@ function ShotInfoHUD({
   );
 }
 
-// ─── Side netting / fencing ─────────────────────────────────────────────────
+// ─── Post-processing pipeline ───────────────────────────────────────────────
 
-function SideNetting() {
-  const netHeight = 12;
-  const postSpacing = 15;
-  const length = 300 * YDS_TO_M;
-
+function PostProcessing() {
   return (
-    <>
-      {[-35, 35].map((x) => (
-        <group key={x}>
-          {/* Net mesh */}
-          <mesh position={[x, netHeight / 2, length / 2]}>
-            <planeGeometry args={[0.1, netHeight, 1, 1]} />
-            <meshStandardMaterial color="#333333" opacity={0.15} transparent side={THREE.DoubleSide} />
-          </mesh>
-          {/* Poles */}
-          {Array.from({ length: Math.floor(length / postSpacing) }, (_, i) => (
-            <mesh key={i} position={[x, netHeight / 2, i * postSpacing]}>
-              <cylinderGeometry args={[0.08, 0.08, netHeight, 6]} />
-              <meshStandardMaterial color="#555555" />
-            </mesh>
-          ))}
-          {/* Top cable */}
-          <Line
-            points={Array.from({ length: Math.floor(length / postSpacing) }, (_, i) => [
-              x,
-              netHeight,
-              i * postSpacing,
-            ] as [number, number, number])}
-            color="#444444"
-            lineWidth={1}
-          />
-        </group>
-      ))}
-    </>
+    <EffectComposer multisampling={0}>
+      <SMAA />
+      <Bloom
+        intensity={0.4}
+        luminanceThreshold={0.8}
+        luminanceSmoothing={0.3}
+        mipmapBlur
+      />
+      <BrightnessContrast brightness={0.02} contrast={0.08} />
+      <HueSaturation saturation={0.1} />
+      <Vignette eskil={false} offset={0.2} darkness={0.4} />
+    </EffectComposer>
   );
 }
 
-// ─── Main 3D scene content ──────────────────────────────────────────────────
+// ─── Clouds ─────────────────────────────────────────────────────────────────
+
+function SceneClouds() {
+  return (
+    <Clouds material={THREE.MeshBasicMaterial}>
+      <Cloud
+        seed={1}
+        segments={20}
+        bounds={[80, 6, 20]}
+        volume={15}
+        opacity={0.35}
+        speed={0.15}
+        fade={50}
+        position={[0, 65, 120]}
+        color="#ffffff"
+      />
+      <Cloud
+        seed={7}
+        segments={15}
+        bounds={[60, 5, 15]}
+        volume={12}
+        opacity={0.25}
+        speed={0.1}
+        fade={40}
+        position={[-40, 70, 180]}
+        color="#f0f0f0"
+      />
+      <Cloud
+        seed={13}
+        segments={12}
+        bounds={[50, 4, 10]}
+        volume={10}
+        opacity={0.2}
+        speed={0.12}
+        fade={35}
+        position={[50, 68, 90]}
+        color="#e8e8e8"
+      />
+    </Clouds>
+  );
+}
+
+// ─── Main scene content ─────────────────────────────────────────────────────
 
 function SceneContent({
   currentShot,
@@ -460,86 +742,104 @@ function SceneContent({
 
   const landingPoint = trajectory.length > 0 ? trajectory[trajectory.length - 1] : null;
 
-  const grassTex = useGrassTexture("#2d7a2d", "#1f6b1f");
-  const roughTex = useGrassTexture("#3a6b2a", "#2a5520");
-  const teeboxTex = useGrassTexture("#35913d", "#2d8235");
+  // High-quality grass textures
+  const fairwayTex = useProceduralGrass("#2e8a2e", "#238a23", "#1a6b1a", 1024, 25000);
+  const fairwayNormal = useNormalMap();
+  const roughTex = useProceduralGrass("#3a7a2a", "#2a5f20", "#1f4a18", 1024, 15000);
+  const teeboxTex = useProceduralGrass("#38a838", "#2d9a2d", "#258825", 1024, 30000);
+
+  // Texture repeat settings
+  useMemo(() => {
+    fairwayTex.repeat.set(20, 40);
+    roughTex.repeat.set(30, 50);
+    teeboxTex.repeat.set(4, 4);
+  }, [fairwayTex, roughTex, teeboxTex]);
 
   return (
     <>
-      {/* Sky */}
+      {/* ── Sky & atmosphere ────────────────────────── */}
       <Sky
-        distance={4500}
-        sunPosition={[100, 40, -50]}
-        inclination={0.52}
+        distance={45000}
+        sunPosition={[80, 35, -60]}
+        inclination={0.49}
         azimuth={0.25}
-        turbidity={8}
-        rayleigh={1.5}
+        turbidity={6}
+        rayleigh={2}
+        mieCoefficient={0.005}
+        mieDirectionalG={0.8}
       />
+      <SceneClouds />
+      <fog attach="fog" args={["#c4dbed", 220, 380]} />
 
-      {/* Lighting — bright sunny day */}
-      <ambientLight intensity={0.5} color="#f5f0e0" />
+      {/* ── Lighting — golden hour feel ────────────── */}
+      <ambientLight intensity={0.45} color="#f0e8d8" />
       <directionalLight
-        position={[60, 80, 30]}
-        intensity={1.2}
-        color="#fff5e0"
+        position={[80, 60, -40]}
+        intensity={1.8}
+        color="#fff3e0"
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-far={400}
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
-        shadow-camera-top={50}
-        shadow-camera-bottom={-50}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-far={350}
+        shadow-camera-left={-60}
+        shadow-camera-right={60}
+        shadow-camera-top={60}
+        shadow-camera-bottom={-10}
+        shadow-bias={-0.0001}
       />
-      <hemisphereLight args={["#87ceeb", "#4a7c4a", 0.35]} />
+      {/* Fill light from opposite side */}
+      <directionalLight
+        position={[-40, 30, 20]}
+        intensity={0.3}
+        color="#a0c0e0"
+      />
+      <hemisphereLight args={["#87CEEB", "#4a8c4a", 0.3]} />
 
-      {/* Fog for depth */}
-      <fog attach="fog" args={["#b5cfe0", 250, 420]} />
+      {/* ── Ground ────────────────────────────────── */}
 
-      {/* ── Ground layers ─────────────────────────────────── */}
-
-      {/* Far rough / surroundings */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 140]}>
-        <planeGeometry args={[400, 400]} />
-        <meshStandardMaterial map={roughTex} color="#4a7a3a" />
+      {/* Distant terrain */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, 140]}>
+        <planeGeometry args={[500, 500]} />
+        <meshStandardMaterial map={roughTex} color="#4a7a3a" roughness={0.95} />
       </mesh>
 
-      {/* Main fairway strip */}
+      {/* Fairway — with normal map for surface detail */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 140]} receiveShadow>
-        <planeGeometry args={[60, 320]} />
-        <meshStandardMaterial map={grassTex} color="#3a9a3a" />
+        <planeGeometry args={[65, 320]} />
+        <meshStandardMaterial
+          map={fairwayTex}
+          normalMap={fairwayNormal}
+          normalScale={new THREE.Vector2(0.3, 0.3)}
+          color="#3a9a3a"
+          roughness={0.75}
+        />
       </mesh>
 
-      {/* Tee box area — slightly elevated, brighter green */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} receiveShadow>
-        <planeGeometry args={[8, 6]} />
-        <meshStandardMaterial map={teeboxTex} color="#45a845" />
+      {/* Tee box platform — slightly elevated */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
+        <planeGeometry args={[10, 6]} />
+        <meshStandardMaterial map={teeboxTex} color="#42a842" roughness={0.6} />
       </mesh>
 
-      {/* Tee mat */}
+      {/* ── Range elements ─────────────────────────── */}
       <TeeMat />
-
-      {/* Bay dividers */}
       <BayDividers />
-
-      {/* Impact screen */}
       <ImpactScreen config={config} />
-
-      {/* Target greens + distance markers */}
       <DistanceMarkers />
-
-      {/* Tree line */}
       <TreeLine />
-
-      {/* Side netting */}
       <SideNetting />
 
-      {/* ── Shot rendering ─────────────────────────────────── */}
+      {/* Bunkers near some greens */}
+      <Bunker position={[6, 0, 135 * YDS_TO_M]} radiusX={3.5} radiusZ={2.5} />
+      <Bunker position={[-5, 0, 185 * YDS_TO_M]} radiusX={4} radiusZ={2.5} />
+      <Bunker position={[7, 0, 240 * YDS_TO_M]} radiusX={3} radiusZ={2} />
 
-      {/* Previous shot trails */}
+      {/* Pond */}
+      <Pond position={[18, 0, 160 * YDS_TO_M]} radius={9} />
+
+      {/* ── Shots ──────────────────────────────────── */}
       <PreviousShotTrails shots={previousShots} />
 
-      {/* Current shot animation */}
       {currentShot && trajectory.length > 0 && (
         <>
           <AnimatedBall
@@ -547,18 +847,12 @@ function SceneContent({
             startIndex={startIndex}
             onComplete={onAnimationComplete}
           />
-          <ShotTrail
-            trajectory={trajectory}
-            startIndex={startIndex}
-            color="#ffffff"
-          />
+          <ShotTrail trajectory={trajectory} startIndex={startIndex} />
         </>
       )}
 
-      {/* Landing zone for current shot */}
       {landingPoint && <LandingZone position={landingPoint} />}
 
-      {/* Shot info display */}
       {currentShot && landingPoint && (
         <ShotInfoHUD
           shot={currentShot}
@@ -566,8 +860,10 @@ function SceneContent({
         />
       )}
 
-      {/* First person camera */}
       <FirstPersonCamera targetZ={landingPoint?.z ?? 120} />
+
+      {/* Post-processing */}
+      <PostProcessing />
     </>
   );
 }
@@ -575,16 +871,28 @@ function SceneContent({
 // ─── First person camera ────────────────────────────────────────────────────
 
 function FirstPersonCamera({ targetZ }: { targetZ: number }) {
-  const eyeHeight = 1.65; // meters — standing behind the ball
+  const eyeHeight = 1.65;
 
   useFrame(({ camera }) => {
     camera.position.set(0, eyeHeight, -0.8);
-    // Look slightly up to see the arc against the sky
-    camera.lookAt(0, eyeHeight * 0.7, Math.min(targetZ, 160));
+    camera.lookAt(0, eyeHeight * 0.65, Math.min(targetZ, 160));
     camera.updateProjectionMatrix();
   });
 
   return null;
+}
+
+// ─── Distance markers ───────────────────────────────────────────────────────
+
+function DistanceMarkers() {
+  const markers = [50, 100, 150, 200, 250, 300];
+  return (
+    <>
+      {markers.map((yds) => (
+        <TargetGreen key={yds} yardage={yds} />
+      ))}
+    </>
+  );
 }
 
 // ─── Main exported component ────────────────────────────────────────────────
@@ -613,14 +921,20 @@ export function BallFlightScene({
   return (
     <div className="w-full h-full rounded-lg overflow-hidden">
       <Canvas
-        shadows
+        shadows="soft"
         camera={{
-          fov: 60,
+          fov: 62,
           near: 0.1,
           far: 500,
           position: [0, 1.65, -0.8],
         }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        gl={{
+          antialias: false, // SMAA handles this
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0,
+          powerPreference: "high-performance",
+        }}
+        dpr={[1, 1.5]}
       >
         <SceneContent
           currentShot={currentShot}
