@@ -1,7 +1,6 @@
 "use client";
 
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { useEffect, useRef } from "react";
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from "recharts";
 
 interface Props {
   carries: number[];
@@ -29,13 +28,6 @@ export function DispersionCircleChart({
     y: carry,
   }));
 
-  const maxOffline = Math.max(30, ...data.map((d) => Math.abs(d.x)));
-  const minCarry = data.length > 0 ? Math.min(...data.map((d) => d.y)) - 10 : 0;
-  const maxCarry = data.length > 0 ? Math.max(...data.map((d) => d.y)) + 10 : 100;
-
-  // SVG overlay for dispersion circle and arc
-  const svgRef = useRef<SVGSVGElement | null>(null);
-
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center text-muted-foreground" style={{ height }}>
@@ -44,35 +36,33 @@ export function DispersionCircleChart({
     );
   }
 
-  // Generate circle points for the dispersion ellipse
-  const circlePoints: Array<{ x: number; y: number }> = [];
-  const xRadius = dispersionRadius * 0.8; // lateral spread
-  const yRadius = dispersionRadius; // depth spread
-  for (let angle = 0; angle <= 360; angle += 5) {
-    const rad = (angle * Math.PI) / 180;
-    circlePoints.push({
-      x: avgOffline + xRadius * Math.cos(rad),
-      y: avgCarry + yRadius * Math.sin(rad),
-    });
-  }
+  // Compute bounds with padding for the dispersion ellipse
+  const pad = Math.max(dispersionRadius * 1.5, 15);
+  const xMin = Math.min(avgOffline - pad, ...data.map((d) => d.x - 5));
+  const xMax = Math.max(avgOffline + pad, ...data.map((d) => d.x + 5));
+  const yMin = Math.min(avgCarry - pad, ...data.map((d) => d.y - 5));
+  const yMax = Math.max(avgCarry + pad, ...data.map((d) => d.y + 5));
 
-  // Generate arc lines from origin showing dispersion angle
-  const halfAngle = (dispersionAngle / 2) * (Math.PI / 180);
-  const arcLength = avgCarry * 1.1;
-  const arcLeft = { x: -Math.sin(halfAngle) * arcLength, y: Math.cos(halfAngle) * arcLength };
-  const arcRight = { x: Math.sin(halfAngle) * arcLength, y: Math.cos(halfAngle) * arcLength };
+  // Dispersion ellipse bounds (used for ReferenceArea visualization)
+  const xRadius = dispersionRadius * 0.7; // lateral is typically tighter than depth
+  const yRadius = dispersionRadius;
 
   return (
     <div>
       <div className="flex items-center gap-4 mb-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full border-2 border-emerald-500 inline-block" />
-          Dispersion Circle: {dispersionRadius} yd radius
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-primary/70 inline-block" />
+          Shots
         </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-0.5 bg-amber-500 inline-block" />
-          Arc: {dispersionAngle}°
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full border-2 border-emerald-500/60 inline-block" />
+          Dispersion zone: {dispersionRadius} yd radius
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 bg-emerald-500 inline-block rotate-45" />
+          Avg: {avgCarry} yds carry, {avgOffline > 0 ? `${avgOffline} R` : avgOffline < 0 ? `${Math.abs(avgOffline)} L` : "center"}
+        </span>
+        <span>Arc: {dispersionAngle}°</span>
       </div>
       <ResponsiveContainer width="100%" height={height}>
         <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
@@ -80,76 +70,65 @@ export function DispersionCircleChart({
           <XAxis
             type="number"
             dataKey="x"
-            domain={[-maxOffline, maxOffline]}
+            domain={[xMin, xMax]}
+            tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${Math.round(v)}`}
             label={{ value: "← Left    Offline (yards)    Right →", position: "bottom", offset: 10, style: { fontSize: 11, fill: "hsl(var(--muted-foreground))" } }}
           />
           <YAxis
             type="number"
             dataKey="y"
-            domain={[minCarry, maxCarry]}
+            domain={[yMin, yMax]}
             label={{ value: "Carry (yards)", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "hsl(var(--muted-foreground))" } }}
           />
-          <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" opacity={0.5} />
 
-          {/* Dispersion circle/ellipse */}
-          <Scatter
-            data={circlePoints}
-            fill="none"
-            stroke="hsl(142, 76%, 45%)"
-            strokeWidth={2}
-            strokeDasharray="4 2"
-            line
-            legendType="none"
-            r={0}
-          />
+          {/* Target line */}
+          <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" opacity={0.4} />
 
-          {/* Arc lines */}
-          <Scatter
-            data={[{ x: 0, y: 0 }, arcLeft]}
-            fill="none"
-            stroke="hsl(38, 92%, 50%)"
-            strokeWidth={1.5}
-            strokeDasharray="6 3"
-            line
-            legendType="none"
-            r={0}
-          />
-          <Scatter
-            data={[{ x: 0, y: 0 }, arcRight]}
-            fill="none"
-            stroke="hsl(38, 92%, 50%)"
-            strokeWidth={1.5}
-            strokeDasharray="6 3"
-            line
-            legendType="none"
-            r={0}
-          />
-
-          {/* Center point */}
-          <Scatter
-            data={[{ x: avgOffline, y: avgCarry }]}
+          {/* Dispersion zone as a shaded ellipse-approximation rectangle */}
+          <ReferenceArea
+            x1={avgOffline - xRadius}
+            x2={avgOffline + xRadius}
+            y1={avgCarry - yRadius}
+            y2={avgCarry + yRadius}
             fill="hsl(142, 76%, 45%)"
-            r={6}
-            shape="cross"
+            fillOpacity={0.08}
+            stroke="hsl(142, 76%, 45%)"
+            strokeOpacity={0.35}
+            strokeDasharray="6 3"
           />
+
+          {/* Average crosshair lines */}
+          <ReferenceLine x={avgOffline} stroke="hsl(142, 76%, 45%)" strokeDasharray="3 3" opacity={0.5} />
+          <ReferenceLine y={avgCarry} stroke="hsl(142, 76%, 45%)" strokeDasharray="3 3" opacity={0.5} />
 
           {/* Shot points */}
           <Scatter
             data={data}
             fill="hsl(var(--primary))"
-            fillOpacity={0.7}
-            r={5}
+            fillOpacity={0.8}
+            r={6}
+          />
+
+          {/* Average center marker */}
+          <Scatter
+            data={[{ x: avgOffline, y: avgCarry }]}
+            fill="hsl(142, 76%, 45%)"
+            r={8}
+            shape="diamond"
+            legendType="none"
           />
 
           <Tooltip
             content={({ payload }) => {
               if (!payload?.length) return null;
               const d = payload[0].payload as { x: number; y: number };
+              const dist = Math.sqrt((d.x - avgOffline) ** 2 + (d.y - avgCarry) ** 2);
               return (
                 <div className="bg-popover border rounded-lg p-2 text-xs shadow-lg">
                   <p className="font-medium">{clubName}</p>
                   <p>Carry: {Math.round(d.y)} yds</p>
                   <p>Offline: {d.x > 0 ? `${d.x.toFixed(1)} R` : `${Math.abs(d.x).toFixed(1)} L`}</p>
+                  <p className="text-muted-foreground">{dist.toFixed(1)} yds from avg</p>
                 </div>
               );
             }}

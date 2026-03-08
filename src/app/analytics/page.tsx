@@ -8,7 +8,6 @@ import { StatCard } from "@/components/common/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 import { ClubStats, GappingData } from "@/types/analytics";
-import { avg } from "@/analytics/stats";
 
 export default function AnalyticsPage() {
   const { data: clubStats } = useFetch<ClubStats[]>("/api/analytics?type=clubs");
@@ -28,20 +27,21 @@ export default function AnalyticsPage() {
   }>>("/api/shots?limit=500");
 
   const validShots = (allShots ?? []).filter((s) => s.validity === "valid");
-  const carries = validShots.map((s) => s.carryDistance).filter((v): v is number => v != null);
-  const ballSpeeds = validShots.map((s) => s.ballSpeed).filter((v): v is number => v != null);
-  const spins = validShots.map((s) => s.spinRate).filter((v): v is number => v != null);
-  const smashes = validShots.map((s) => s.smashFactor).filter((v): v is number => v != null);
 
   const sorted = (clubStats ?? []).filter((c) => c.shotCount >= 3).sort((a, b) => b.avgCarry - a.avgCarry);
+
+  // Summary stats that actually make sense across clubs
+  const mostConsistentClub = sorted.length > 0 ? sorted.reduce((best, c) => c.consistencyScore > best.consistencyScore ? c : best) : null;
+  const longestCarry = clubStats && clubStats.length > 0 ? Math.max(...clubStats.map((c) => c.bestCarry)) : 0;
 
   // Dispersion data
   const dispersionData = validShots
     .filter((s) => s.carryDistance != null && s.offlineDistance != null)
-    .slice(0, 200)
+    .slice(0, 300)
     .map((s) => ({
       x: s.offlineDistance!,
       y: s.carryDistance!,
+      totalDistance: s.totalDistance ?? undefined,
       clubName: s.club?.name,
       ballSpeed: s.ballSpeed ?? undefined,
     }));
@@ -61,13 +61,16 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
-      {/* Aggregate Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Total Valid Shots" value={validShots.length} />
-        <StatCard label="Overall Avg Carry" value={carries.length ? Math.round(avg(carries)) : "—"} unit="yds" />
-        <StatCard label="Avg Ball Speed" value={ballSpeeds.length ? Math.round(avg(ballSpeeds)) : "—"} unit="mph" />
-        <StatCard label="Avg Spin Rate" value={spins.length ? Math.round(avg(spins)) : "—"} unit="rpm" />
-        <StatCard label="Avg Smash Factor" value={smashes.length ? (Math.round(avg(smashes) * 100) / 100).toString() : "—"} />
+        <StatCard label="Clubs Tracked" value={sorted.length} />
+        <StatCard label="Longest Carry" value={longestCarry || "—"} unit={longestCarry ? "yds" : undefined} />
+        <StatCard
+          label="Most Consistent"
+          value={mostConsistentClub ? mostConsistentClub.clubName : "—"}
+          unit={mostConsistentClub ? `${mostConsistentClub.consistencyScore}%` : undefined}
+        />
       </div>
 
       {/* Club Gapping */}

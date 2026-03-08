@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
+import { useState, useMemo, useCallback } from "react";
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
 interface DispersionPoint {
   x: number;
@@ -34,35 +34,67 @@ const CLUB_COLORS = [
   "#e11d48", // rose
 ];
 
+// Standard club order (longest to shortest)
+const CLUB_ORDER = [
+  "Driver", "3 Wood", "5 Wood", "4 Hybrid", "5 Hybrid",
+  "3 Iron", "4 Iron", "5 Iron", "6 Iron", "7 Iron", "8 Iron", "9 Iron",
+  "Pitching Wedge", "Gap Wedge", "Sand Wedge", "Lob Wedge",
+];
+
+function clubSortKey(name: string, avgCarry: number): number {
+  const idx = CLUB_ORDER.indexOf(name);
+  // Known clubs get their canonical order; unknown clubs sort by carry distance
+  return idx >= 0 ? idx : 100 + (999 - avgCarry);
+}
+
 export function DispersionChart({ data, title = "Shot Dispersion", height = 400 }: Props) {
   const [mode, setMode] = useState<"carry" | "total">("carry");
+  const [hiddenClubs, setHiddenClubs] = useState<Set<string>>(new Set());
 
   const { clubNames, colorMap, groupedData } = useMemo(() => {
-    const names = Array.from(new Set(data.map((d) => d.clubName ?? "Unknown")));
-    // Sort clubs by average carry descending (longest first) for a logical legend order
-    names.sort((a, b) => {
-      const avgA = data.filter((d) => (d.clubName ?? "Unknown") === a).reduce((s, d) => s + d.y, 0) / (data.filter((d) => (d.clubName ?? "Unknown") === a).length || 1);
-      const avgB = data.filter((d) => (d.clubName ?? "Unknown") === b).reduce((s, d) => s + d.y, 0) / (data.filter((d) => (d.clubName ?? "Unknown") === b).length || 1);
-      return avgB - avgA;
-    });
+    // Group shots by club and compute avg carry for sorting
+    const groups = new Map<string, { shots: DispersionPoint[]; avgCarry: number }>();
+    for (const d of data) {
+      const name = d.clubName ?? "Unknown";
+      const group = groups.get(name) ?? { shots: [], avgCarry: 0 };
+      group.shots.push(d);
+      groups.set(name, group);
+    }
+    for (const [, group] of groups) {
+      group.avgCarry = group.shots.reduce((s, d) => s + d.y, 0) / group.shots.length;
+    }
+
+    // Sort by standard club order (longest to shortest)
+    const names = Array.from(groups.keys()).sort(
+      (a, b) => clubSortKey(a, groups.get(a)!.avgCarry) - clubSortKey(b, groups.get(b)!.avgCarry)
+    );
 
     const cMap = new Map<string, string>();
     names.forEach((name, i) => cMap.set(name, CLUB_COLORS[i % CLUB_COLORS.length]));
 
+    // Build display data with mode applied
     const grouped = new Map<string, DispersionPoint[]>();
-    for (const d of data) {
-      const name = d.clubName ?? "Unknown";
-      const point = {
+    for (const name of names) {
+      grouped.set(name, groups.get(name)!.shots.map((d) => ({
         ...d,
         y: mode === "total" && d.totalDistance != null ? d.totalDistance : d.y,
-      };
-      const arr = grouped.get(name) ?? [];
-      arr.push(point);
-      grouped.set(name, arr);
+      })));
     }
 
     return { clubNames: names, colorMap: cMap, groupedData: grouped };
   }, [data, mode]);
+
+  const toggleClub = useCallback((name: string) => {
+    setHiddenClubs((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const showAll = useCallback(() => setHiddenClubs(new Set()), []);
+  const hideAll = useCallback(() => setHiddenClubs(new Set(clubNames)), [clubNames]);
 
   if (data.length === 0) {
     return (
@@ -72,7 +104,8 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
     );
   }
 
-  const maxOffline = Math.max(30, ...data.map((d) => Math.abs(d.x)));
+  const visibleData = data.filter((d) => !hiddenClubs.has(d.clubName ?? "Unknown"));
+  const maxOffline = Math.max(30, ...visibleData.map((d) => Math.abs(d.x)));
   const hasTotalData = data.some((d) => d.totalDistance != null);
   const yLabel = mode === "carry" ? "Carry (yards)" : "Total (yards)";
 
@@ -101,6 +134,36 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
           </div>
         )}
       </div>
+
+      {/* Clickable club legend */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
+        {clubNames.map((name) => {
+          const isHidden = hiddenClubs.has(name);
+          return (
+            <button
+              key={name}
+              onClick={() => toggleClub(name)}
+              className={`inline-flex items-center gap-1.5 text-xs py-0.5 transition-opacity ${
+                isHidden ? "opacity-35" : "opacity-100"
+              } hover:opacity-80`}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: colorMap.get(name) }}
+              />
+              <span className={isHidden ? "line-through" : ""}>{name}</span>
+            </button>
+          );
+        })}
+        {clubNames.length > 3 && (
+          <span className="text-xs text-muted-foreground ml-1">
+            <button onClick={showAll} className="hover:underline">All</button>
+            {" / "}
+            <button onClick={hideAll} className="hover:underline">None</button>
+          </span>
+        )}
+      </div>
+
       <ResponsiveContainer width="100%" height={height}>
         <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -134,20 +197,19 @@ export function DispersionChart({ data, title = "Shot Dispersion", height = 400 
               );
             }}
           />
-          <Legend
-            verticalAlign="top"
-            wrapperStyle={{ fontSize: 11, paddingBottom: 4 }}
-          />
-          {clubNames.map((name) => (
-            <Scatter
-              key={name}
-              name={name}
-              data={groupedData.get(name) ?? []}
-              fill={colorMap.get(name)}
-              fillOpacity={0.75}
-              r={5}
-            />
-          ))}
+          {clubNames
+            .filter((name) => !hiddenClubs.has(name))
+            .map((name) => (
+              <Scatter
+                key={name}
+                name={name}
+                data={groupedData.get(name) ?? []}
+                fill={colorMap.get(name)}
+                fillOpacity={0.75}
+                r={5}
+                legendType="none"
+              />
+            ))}
         </ScatterChart>
       </ResponsiveContainer>
     </div>
