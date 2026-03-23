@@ -178,12 +178,12 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
                   <th className="py-2 px-2 text-left">#</th>
                   <th className="py-2 px-2 text-left">Club</th>
                   <th className="py-2 px-2 text-right">Carry</th>
-                  <th className="py-2 px-2 text-right">Total</th>
+                  <th className="py-2 px-2 text-right hidden sm:table-cell">Total</th>
                   <th className="py-2 px-2 text-right">Ball Spd</th>
-                  <th className="py-2 px-2 text-right">Club Spd</th>
-                  <th className="py-2 px-2 text-right">Spin</th>
-                  <th className="py-2 px-2 text-right">Launch</th>
-                  <th className="py-2 px-2 text-right">Offline</th>
+                  <th className="py-2 px-2 text-right hidden md:table-cell">Club Spd</th>
+                  <th className="py-2 px-2 text-right hidden sm:table-cell">Spin</th>
+                  <th className="py-2 px-2 text-right hidden md:table-cell">Launch</th>
+                  <th className="py-2 px-2 text-right hidden sm:table-cell">Offline</th>
                   <th className="py-2 px-2 text-center">Result</th>
                 </tr>
               </thead>
@@ -198,12 +198,12 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
                     <td className="py-1.5 px-2 text-muted-foreground">{shot.shotNumber}</td>
                     <td className="py-1.5 px-2 font-medium">{shot.club?.name ?? "—"}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{shot.carryDistance ?? "—"}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{shot.totalDistance ?? "—"}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums hidden sm:table-cell">{shot.totalDistance ?? "—"}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{shot.ballSpeed ?? "—"}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{shot.clubSpeed ?? "—"}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{shot.spinRate ?? "—"}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">{shot.launchAngle ?? "—"}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums">
+                    <td className="py-1.5 px-2 text-right tabular-nums hidden md:table-cell">{shot.clubSpeed ?? "—"}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums hidden sm:table-cell">{shot.spinRate ?? "—"}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums hidden md:table-cell">{shot.launchAngle ?? "—"}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums hidden sm:table-cell">
                       {shot.offlineDistance != null
                         ? `${shot.offlineDistance > 0 ? "R" : "L"} ${Math.abs(shot.offlineDistance)}`
                         : "—"}

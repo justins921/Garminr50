@@ -87,10 +87,10 @@ export default function AnalyticsPage() {
                   <tr className="border-b text-muted-foreground text-xs">
                     <th className="py-2 px-2 text-left">Club</th>
                     <th className="py-2 px-2 text-right">Avg Carry</th>
-                    <th className="py-2 px-2 text-right">Avg Total</th>
-                    <th className="py-2 px-2 text-right">Range</th>
-                    <th className="py-2 px-2 text-right">Gap to Next</th>
-                    <th className="py-2 px-2 text-right">Overlap</th>
+                    <th className="py-2 px-2 text-right hidden sm:table-cell">Avg Total</th>
+                    <th className="py-2 px-2 text-right hidden sm:table-cell">Range</th>
+                    <th className="py-2 px-2 text-right">Gap</th>
+                    <th className="py-2 px-2 text-right hidden sm:table-cell">Overlap</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -98,12 +98,12 @@ export default function AnalyticsPage() {
                     <tr key={c.clubName} className="border-b">
                       <td className="py-1.5 px-2 font-medium">{c.clubName}</td>
                       <td className="py-1.5 px-2 text-right tabular-nums">{c.avgCarry} yds</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums">{c.avgTotal} yds</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">{c.minCarry}–{c.maxCarry}</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums hidden sm:table-cell">{c.avgTotal} yds</td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground hidden sm:table-cell">{c.minCarry}–{c.maxCarry}</td>
                       <td className="py-1.5 px-2 text-right tabular-nums">
                         {c.gapToNext != null ? `${c.gapToNext} yds` : "—"}
                       </td>
-                      <td className="py-1.5 px-2 text-right tabular-nums">
+                      <td className="py-1.5 px-2 text-right tabular-nums hidden sm:table-cell">
                         {c.overlapWithNext != null ? (
                           <span className="text-amber-500">{c.overlapWithNext} yds</span>
                         ) : "—"}

@@ -96,7 +96,7 @@ export default function ImportPage() {
                 </Button>
               </div>
             ) : (
-              <div>
+              <label className="cursor-pointer">
                 <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                 <p className="font-medium">Drop a CSV or JSON file here</p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -105,11 +105,10 @@ export default function ImportPage() {
                 <input
                   type="file"
                   accept=".csv,.json"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  className="sr-only"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  style={{ position: "relative" }}
                 />
-              </div>
+              </label>
             )}
           </div>
         </CardContent>
@@ -132,7 +131,7 @@ export default function ImportPage() {
           <div>
             <Label>Environment</Label>
             <Select value={environment} onValueChange={(v) => setEnvironment(v ?? "indoor")}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

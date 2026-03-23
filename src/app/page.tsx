@@ -52,12 +52,12 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Your golf analytics overview</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Link
             href="/live"
             className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors"
@@ -133,21 +133,21 @@ export default function DashboardPage() {
                 <Link
                   key={session.id}
                   href={`/sessions/${session.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors group"
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-accent transition-colors group"
                 >
-                  <div>
-                    <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">
                       {session.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(session.startedAt), "MMM d, yyyy · h:mm a")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge variant="secondary" className="text-xs">
                       {session._count.shots} shots
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                       {session.environment}
                     </Badge>
                   </div>

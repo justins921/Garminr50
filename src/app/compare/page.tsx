@@ -82,7 +82,7 @@ export default function ComparePage() {
           <CardContent className="pt-4">
             <label className="text-sm font-medium mb-2 block">Session A</label>
             <Select value={sessionA} onValueChange={(v) => setSessionA(v ?? "")}>
-              <SelectTrigger><SelectValue placeholder="Select session..." /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select session..." /></SelectTrigger>
               <SelectContent>
                 {(sessions ?? []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>
@@ -97,7 +97,7 @@ export default function ComparePage() {
           <CardContent className="pt-4">
             <label className="text-sm font-medium mb-2 block">Session B</label>
             <Select value={sessionB} onValueChange={(v) => setSessionB(v ?? "")}>
-              <SelectTrigger><SelectValue placeholder="Select session..." /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select session..." /></SelectTrigger>
               <SelectContent>
                 {(sessions ?? []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>

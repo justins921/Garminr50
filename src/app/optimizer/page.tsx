@@ -71,15 +71,15 @@ export default function OptimizerPage() {
       <Card>
         <CardContent className="pt-4">
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="w-full sm:w-auto sm:min-w-44">
+            <div className="w-full sm:w-auto sm:min-w-48">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Club</label>
               <Select value={selectedClub} onValueChange={(v) => setSelectedClub(v ?? "")}>
-                <SelectTrigger><SelectValue placeholder="All clubs" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="All clubs" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All clubs</SelectItem>
                   {clubsWithShots.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} ({c._count.shots})
+                      {c.name} ({c._count.shots} shots)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -88,12 +88,12 @@ export default function OptimizerPage() {
             <div className="w-full sm:w-auto sm:min-w-56">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Session</label>
               <Select value={selectedSession} onValueChange={(v) => setSelectedSession(v ?? "")}>
-                <SelectTrigger><SelectValue placeholder="All sessions" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="All sessions" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All sessions</SelectItem>
                   {(sessions ?? []).map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s._count.shots})
+                      {s.name} ({s._count.shots} shots)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -228,7 +228,7 @@ export default function OptimizerPage() {
                           <div className="flex items-start gap-3">
                             <Icon className="w-5 h-5 mt-0.5 text-muted-foreground flex-shrink-0" />
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <h4 className="font-medium text-sm">{drill.name}</h4>
                                 <Badge
                                   variant={drill.priority === "high" ? "destructive" : "secondary"}

@@ -219,38 +219,42 @@ export default function LiveSessionPage() {
       {/* Controls */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <Select value={selectedClub} onValueChange={handleClubChange}>
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(GSPRO_CLUB_MAP).map(([code, name]) => (
-                  <SelectItem key={code} value={code}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="w-full sm:w-auto">
+              <Select value={selectedClub} onValueChange={handleClubChange}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(GSPRO_CLUB_MAP).map(([code, name]) => (
+                    <SelectItem key={code} value={code}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {!sessionActive ? (
-              <Button onClick={startSession} className="bg-emerald-600 hover:bg-emerald-700">
-                <Radio className="w-4 h-4 mr-2" />
-                Start Session
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => setSessionPaused(!sessionPaused)}
-                >
-                  {sessionPaused ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
-                  {sessionPaused ? "Resume" : "Pause"}
+            <div className="flex items-center gap-2 flex-wrap">
+              {!sessionActive ? (
+                <Button onClick={startSession} className="bg-emerald-600 hover:bg-emerald-700">
+                  <Radio className="w-4 h-4 mr-2" />
+                  Start Session
                 </Button>
-                <Button variant="destructive" onClick={stopSession}>
-                  <Square className="w-4 h-4 mr-2" />
-                  End Session
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSessionPaused(!sessionPaused)}
+                  >
+                    {sessionPaused ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
+                    {sessionPaused ? "Resume" : "Pause"}
+                  </Button>
+                  <Button variant="destructive" onClick={stopSession}>
+                    <Square className="w-4 h-4 mr-2" />
+                    End Session
+                  </Button>
+                </>
+              )}
+            </div>
 
             {!connected ? (
               <Button
@@ -258,7 +262,7 @@ export default function LiveSessionPage() {
                 size="sm"
                 onClick={startBridge}
                 disabled={bridgeStarting}
-                className="ml-auto"
+                className="sm:ml-auto"
               >
                 <Power className="w-4 h-4 mr-2" />
                 {bridgeStarting ? "Starting..." : "Start Bridge"}
@@ -268,7 +272,7 @@ export default function LiveSessionPage() {
                 variant="ghost"
                 size="sm"
                 onClick={stopBridge}
-                className="ml-auto text-muted-foreground"
+                className="sm:ml-auto text-muted-foreground"
               >
                 <Power className="w-4 h-4 mr-2" />
                 Stop Bridge
@@ -323,10 +327,10 @@ export default function LiveSessionPage() {
                       <span className="text-xs text-muted-foreground w-6 text-right">#{shot.shotNumber}</span>
                       <span className="font-medium">{shot.clubName}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
+                    <div className="flex items-center gap-3 sm:gap-4 text-xs text-muted-foreground tabular-nums">
                       <span>{shot.carryDistance ?? "?"} yds</span>
                       <span>{Math.round(shot.ballSpeed)} mph</span>
-                      <span>{Math.round(shot.spinRate)} rpm</span>
+                      <span className="hidden sm:inline">{Math.round(shot.spinRate)} rpm</span>
                     </div>
                   </div>
                 ))

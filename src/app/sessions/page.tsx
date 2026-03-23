@@ -58,21 +58,21 @@ export default function SessionsPage() {
             <Link key={session.id} href={`/sessions/${session.id}`}>
               <Card className="hover:border-primary/30 transition-colors cursor-pointer">
                 <CardContent className="pt-4 pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-medium">{session.name}</h3>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-medium truncate">{session.name}</h3>
                       <p className="text-sm text-muted-foreground mt-0.5">
-                        {format(new Date(session.startedAt), "EEEE, MMM d, yyyy · h:mm a")}
+                        {format(new Date(session.startedAt), "MMM d, yyyy · h:mm a")}
                       </p>
                       {session.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">{session.notes}</p>
+                        <p className="text-xs text-muted-foreground mt-1 italic truncate">{session.notes}</p>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <Badge variant="secondary">{session._count.shots} shots</Badge>
                       <div className="flex gap-1">
                         <Badge variant="outline" className="text-xs">{session.environment}</Badge>
-                        <Badge variant="outline" className="text-xs">{session.sessionType}</Badge>
+                        <Badge variant="outline" className="text-xs hidden sm:inline-flex">{session.sessionType}</Badge>
                       </div>
                     </div>
                   </div>
