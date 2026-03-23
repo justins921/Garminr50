@@ -22,6 +22,7 @@ export interface ClubStats {
   best5Carry: number;
   best10Carry: number;
   missTendency: "left" | "right" | "straight";
+  avgApexHeight: number; // feet
 }
 
 export interface SessionStats {

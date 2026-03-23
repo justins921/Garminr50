@@ -67,6 +67,7 @@ export default function ClubsPage() {
     clubName: club.clubName,
     avgCarry: club.avgCarry,
     avgLaunchAngle: club.avgLaunchAngle,
+    apexHeight: club.avgApexHeight > 0 ? club.avgApexHeight * 3 : undefined, // yards → feet
     color: colorMap.get(club.clubId) ?? CLUB_COLORS[0],
   }));
 

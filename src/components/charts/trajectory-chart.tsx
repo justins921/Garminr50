@@ -33,8 +33,23 @@ function trajectoryHeight(t: number, apexFt: number): number {
 
 function estimateApex(carryYards: number, launchDeg: number, apexFt?: number): number {
   if (apexFt) return apexFt;
-  const launchRad = (launchDeg * Math.PI) / 180;
-  return carryYards * Math.sin(launchRad) * 0.35 * 3;
+  // Estimate apex in feet from carry (yards) and launch angle (degrees).
+  // Based on real data:
+  //   Driver: ~264 carry, 8.8° → ~96 ft     (ratio: 0.364 ft per yard)
+  //   7-iron: ~169 carry, 18.7° → ~84 ft    (ratio: 0.497)
+  //   PW:     ~124 carry, 26° → ~84 ft      (ratio: 0.677)
+  //   58°:    ~59 carry, 33° → ~60 ft        (ratio: 1.02)
+  // Simple ballistic estimate: apex = carry * sin(launch) * scaleFactor
+  // With drag, real trajectories peak lower. Scale factor of 0.9 fits well:
+  //   Driver(264, 8.8°): 264 * sin(8.8°) * 0.9 * 3 = 109 ft (real ~96)
+  //   7-iron(169, 18.7°): 169 * sin(18.7°) * 0.9 * 3 = 146 ft (real ~84)
+  // Lower launch clubs are closer. We clamp high-launch to avoid huge values.
+  // Better: use ratio from reference data. Apex in yards is roughly carry * 0.12
+  // for drivers up to carry * 0.22 for wedges, approximated as:
+  //   apexYards ≈ carry * (0.08 + launchDeg * 0.005)
+  //   apexFeet = apexYards * 3
+  const apexYards = carryYards * (0.08 + launchDeg * 0.005);
+  return apexYards * 3;
 }
 
 const CLUB_COLORS = [

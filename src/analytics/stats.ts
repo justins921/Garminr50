@@ -70,6 +70,7 @@ export function computeClubStats(
   const launchAngles = valid.map((s) => s.launchAngle).filter((v): v is number => v != null);
   const spinRates = valid.map((s) => s.spinRate).filter((v): v is number => v != null);
   const smashFactors = valid.map((s) => s.smashFactor).filter((v): v is number => v != null);
+  const apexHeights = valid.map((s) => s.apexHeight).filter((v): v is number => v != null);
 
   const avgOffline = avg(offlines);
 
@@ -101,6 +102,7 @@ export function computeClubStats(
     best5Carry: Math.round(topN(carries, 5) * 10) / 10,
     best10Carry: Math.round(topN(carries, 10) * 10) / 10,
     missTendency: avgOffline < -2 ? "left" : avgOffline > 2 ? "right" : "straight",
+    avgApexHeight: Math.round(avg(apexHeights) * 10) / 10,
   };
 }
 
