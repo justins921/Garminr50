@@ -16,39 +16,25 @@ interface Props {
   height?: number;
 }
 
-// Generate a parabolic trajectory from launch angle, carry distance, and apex height
-function generateTrajectory(
-  carryYards: number,
-  launchDeg: number,
-  apexFt?: number
-): Array<{ distance: number; height: number }> {
-  const points: Array<{ distance: number; height: number }> = [];
-  const n = 60;
-
-  // Estimate apex height from launch angle if not provided
-  // Rough model: apex ≈ carry * sin(launch) * 0.35 (in feet, carry in yards)
-  const launchRad = (launchDeg * Math.PI) / 180;
-  const estimatedApex = apexFt ?? carryYards * Math.sin(launchRad) * 0.35 * 3; // convert to feet
-
-  for (let i = 0; i <= n; i++) {
-    const t = i / n; // 0 to 1
-    const distance = t * carryYards;
-    // Parabolic arc: h(t) = 4 * apex * t * (1 - t)
-    // Slightly skew peak forward for realism: peak at ~55% of distance
-    const skew = 0.55;
+// Compute trajectory height at a given fraction t (0–1) of carry distance
+function trajectoryHeight(t: number, apexFt: number): number {
+  // Skew peak forward to ~55% of distance for realism
+  const skew = 0.55;
+  let height: number;
+  if (t <= skew) {
     const tAdj = t / skew;
-    let height: number;
-    if (t <= skew) {
-      height = estimatedApex * (1 - (1 - tAdj) * (1 - tAdj));
-    } else {
-      const tDown = (t - skew) / (1 - skew);
-      height = estimatedApex * (1 - tDown * tDown);
-    }
-    height = Math.max(0, height);
-    points.push({ distance: Math.round(distance), height: Math.round(height * 10) / 10 });
+    height = apexFt * (1 - (1 - tAdj) * (1 - tAdj));
+  } else {
+    const tDown = (t - skew) / (1 - skew);
+    height = apexFt * (1 - tDown * tDown);
   }
+  return Math.max(0, height);
+}
 
-  return points;
+function estimateApex(carryYards: number, launchDeg: number, apexFt?: number): number {
+  if (apexFt) return apexFt;
+  const launchRad = (launchDeg * Math.PI) / 180;
+  return carryYards * Math.sin(launchRad) * 0.35 * 3;
 }
 
 const CLUB_COLORS = [
@@ -71,35 +57,39 @@ export function TrajectoryChart({ clubs, height = 300 }: Props) {
   const { mergedData, maxDistance, maxHeight } = useMemo(() => {
     if (clubs.length === 0) return { mergedData: [], maxDistance: 300, maxHeight: 140 };
 
-    // Generate trajectories for each club
-    const trajectories = clubs.map((club) =>
-      generateTrajectory(club.avgCarry, club.avgLaunchAngle, club.apexHeight)
-    );
+    // Shared distance grid — every 2 yards from 0 to the longest club
+    const maxCarry = Math.max(...clubs.map((c) => c.avgCarry));
+    const step = 2;
+    const numPoints = Math.ceil(maxCarry / step) + 1;
 
-    // Merge all trajectories into one array keyed by distance
-    const distanceSet = new Set<number>();
-    for (const traj of trajectories) {
-      for (const pt of traj) distanceSet.add(pt.distance);
+    // Pre-compute apex for each club
+    const apexes = clubs.map((c) => estimateApex(c.avgCarry, c.avgLaunchAngle, c.apexHeight));
+
+    let peakHeight = 0;
+    const merged: Array<Record<string, number | undefined>> = [];
+
+    for (let i = 0; i < numPoints; i++) {
+      const d = i * step;
+      const row: Record<string, number | undefined> = { distance: d };
+
+      clubs.forEach((club, ci) => {
+        if (d > club.avgCarry) {
+          row[club.clubName] = undefined; // beyond this club's range
+        } else {
+          const t = d / club.avgCarry;
+          const h = Math.round(trajectoryHeight(t, apexes[ci]) * 10) / 10;
+          row[club.clubName] = h;
+          if (h > peakHeight) peakHeight = h;
+        }
+      });
+
+      merged.push(row);
     }
 
-    const distances = Array.from(distanceSet).sort((a, b) => a - b);
-    const merged = distances.map((d) => {
-      const row: Record<string, number> = { distance: d };
-      clubs.forEach((club, i) => {
-        const traj = trajectories[i];
-        const pt = traj.find((p) => p.distance === d);
-        if (pt) row[club.clubName] = pt.height;
-      });
-      return row;
-    });
+    const mDist = Math.ceil(maxCarry / 50) * 50;
+    const mHeight = Math.ceil(peakHeight / 20) * 20;
 
-    const mDist = Math.max(...clubs.map((c) => c.avgCarry), 300);
-    const mHeight = Math.max(
-      ...trajectories.flatMap((t) => t.map((p) => p.height)),
-      100
-    );
-
-    return { mergedData: merged, maxDistance: Math.ceil(mDist / 50) * 50, maxHeight: Math.ceil(mHeight / 20) * 20 };
+    return { mergedData: merged, maxDistance: Math.max(mDist, 300), maxHeight: Math.max(mHeight, 100) };
   }, [clubs]);
 
   if (clubs.length === 0) {
@@ -147,6 +137,7 @@ export function TrajectoryChart({ clubs, height = 300 }: Props) {
             strokeWidth={2}
             dot={false}
             strokeOpacity={0.8}
+            connectNulls={false}
           />
         ))}
       </LineChart>
