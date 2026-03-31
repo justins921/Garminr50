@@ -30,8 +30,11 @@ interface MatrixEntry {
   avgLaunchAngle: number | null;
   minCarry: number | null;
   maxCarry: number | null;
+  minTotal: number | null;
+  maxTotal: number | null;
   shotCount: number;
   status: string;
+  notes: string | null;
   club?: { name: string; loft: number | null } | null;
 }
 

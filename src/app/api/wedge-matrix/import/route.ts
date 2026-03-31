@@ -182,6 +182,8 @@ export async function POST(req: NextRequest) {
         avgLaunchAngle: launches.length > 0 ? Math.round(avg(launches) * 10) / 10 : null,
         minCarry: Math.round(Math.min(...carries) * 10) / 10,
         maxCarry: Math.round(Math.max(...carries) * 10) / 10,
+        minTotal: totals.length > 0 ? Math.round(Math.min(...totals) * 10) / 10 : null,
+        maxTotal: totals.length > 0 ? Math.round(Math.max(...totals) * 10) / 10 : null,
         shotCount: carries.length,
         sessionId: session.id,
         status: carries.length >= 3 ? "completed" : "in_progress",

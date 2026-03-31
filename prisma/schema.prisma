@@ -222,8 +222,8 @@ model WedgeMatrixEntry {
   id              String   @id @default(uuid())
   wedgeMatrixId   String
   clubId          String
-  swingKey        String   // clock: "7:30", "9:00", "10:30"; percentage: "25", "50", "75", "100"; feel: "soft", "medium", "full"
-  swingLabel      String   // display name: "7:30 Position", "50% Swing", etc.
+  swingKey        String   // clock: "7", "8", "9", "10"; percentage: "25", "50", "75", "100"; feel: "soft", "medium", "full"
+  swingLabel      String   // display name: "7 O'Clock", "50% Swing", etc.
   targetDistance   Float?   // target carry in yards (optional, user-set)
   avgCarry        Float?
   avgTotal        Float?
@@ -231,8 +231,11 @@ model WedgeMatrixEntry {
   avgLaunchAngle  Float?
   minCarry        Float?
   maxCarry        Float?
+  minTotal        Float?
+  maxTotal        Float?
   shotCount       Int      @default(0)
   status          String   @default("pending") // pending, in_progress, completed
+  notes           String?  // e.g. "Chip length — not a standard partial swing"
   sessionId       String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

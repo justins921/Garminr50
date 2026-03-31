@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 
 interface Entry {
   id: string;
@@ -13,8 +14,11 @@ interface Entry {
   avgLaunchAngle: number | null;
   minCarry: number | null;
   maxCarry: number | null;
+  minTotal: number | null;
+  maxTotal: number | null;
   shotCount: number;
   status: string;
+  notes: string | null;
   club?: { name: string; loft: number | null } | null;
 }
 
@@ -43,7 +47,6 @@ export function WedgeMatrixGrid({ entries, swingKeys, onCellClick }: Props) {
   const getEntry = (clubId: string, swingKey: string) =>
     entries.find((e) => e.clubId === clubId && e.swingKey === swingKey);
 
-  // Color coding for distance cells
   const getColor = (carry: number | null, status: string) => {
     if (status === "pending" || carry === null) return "bg-muted/30";
     if (status === "completed") return "bg-emerald-500/10 border-emerald-500/20";
@@ -55,7 +58,7 @@ export function WedgeMatrixGrid({ entries, swingKeys, onCellClick }: Props) {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="p-2 text-left text-xs font-medium text-muted-foreground border-b w-32">
+            <th className="p-2 text-left text-xs font-medium text-muted-foreground border-b w-36">
               Club
             </th>
             {swingKeys.map((sk) => (
@@ -74,9 +77,6 @@ export function WedgeMatrixGrid({ entries, swingKeys, onCellClick }: Props) {
               <td className="p-2">
                 <div>
                   <span className="font-medium text-sm">{club.name}</span>
-                  {club.loft && (
-                    <span className="text-xs text-muted-foreground ml-1">{club.loft}°</span>
-                  )}
                 </div>
               </td>
               {swingKeys.map((sk) => {
@@ -90,16 +90,44 @@ export function WedgeMatrixGrid({ entries, swingKeys, onCellClick }: Props) {
                     onClick={() => onCellClick?.(entry)}
                   >
                     {entry.avgCarry ? (
-                      <div>
+                      <div className="space-y-0.5">
+                        {/* Carry */}
                         <p className="text-lg font-bold tabular-nums">{entry.avgCarry}</p>
                         <p className="text-[10px] text-muted-foreground tabular-nums">
                           {entry.minCarry}–{entry.maxCarry}
                         </p>
+
+                        {/* Total */}
+                        {entry.avgTotal && (
+                          <>
+                            <p className="text-xs font-semibold tabular-nums text-muted-foreground mt-1">
+                              {entry.avgTotal} <span className="font-normal">total</span>
+                            </p>
+                            {entry.minTotal != null && entry.maxTotal != null && (
+                              <p className="text-[10px] text-muted-foreground tabular-nums">
+                                {entry.minTotal}–{entry.maxTotal}
+                              </p>
+                            )}
+                          </>
+                        )}
+
+                        {/* Spin */}
                         {entry.avgSpinRate && (
                           <p className="text-[10px] text-muted-foreground">
                             {entry.avgSpinRate} rpm
                           </p>
                         )}
+
+                        {/* Note */}
+                        {entry.notes && (
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                            <span className="text-[9px] text-amber-500 leading-tight">
+                              {entry.notes}
+                            </span>
+                          </div>
+                        )}
+
                         <Badge
                           variant="secondary"
                           className="text-[9px] mt-0.5"
