@@ -6,10 +6,10 @@ import { requireUserId } from "@/lib/auth";
 
 const SWING_KEYS: Record<string, Array<{ key: string; label: string }>> = {
   clock: [
-    { key: "7:30", label: "7:30 Position" },
-    { key: "9:00", label: "9:00 Position" },
-    { key: "10:30", label: "10:30 Position" },
-    { key: "full", label: "Full Swing" },
+    { key: "7", label: "7 O'Clock" },
+    { key: "8", label: "8 O'Clock" },
+    { key: "9", label: "9 O'Clock" },
+    { key: "10", label: "10 O'Clock" },
   ],
   percentage: [
     { key: "25", label: "25% Swing" },
