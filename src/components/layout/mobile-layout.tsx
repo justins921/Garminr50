@@ -25,6 +25,7 @@ import {
   Map,
   Grid3X3,
   Zap,
+  ClipboardList,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { href: "/sessions", label: "Sessions", icon: History },
   { href: "/clubs", label: "Clubs", icon: Crosshair },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/yardage-card", label: "Yardage Card", icon: ClipboardList },
   { href: "/bag-mapping", label: "Bag Mapping", icon: Map },
   { href: "/wedge-matrix", label: "Wedge Matrix", icon: Grid3X3 },
   { href: "/optimizer", label: "Shot Optimizer", icon: Zap },
